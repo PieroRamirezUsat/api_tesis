@@ -248,7 +248,7 @@ def ejercicio_siguiente():
         params = []
 
         if id_dominio:
-            where.append("e.id_competencia = %s")
+            filtros.append("e.id_competencia = %s")
             params.append(id_dominio)
 
         if ajuste == "mas_dificil":
@@ -313,6 +313,9 @@ def ejercicio_siguiente():
 
         ejercicio = cursor.fetchone()
 
+        # ===========================================================
+        # 5) Si NO hay ejercicios nuevos → permitir reforzar antiguos
+        # ===========================================================
         if not ejercicio:
             print("⚠️ No hay ejercicios del nivel predicho. Intentando sin filtro de nivel...")
             where_sin_nivel  = [w for w in where if "e.nivel" not in w]
@@ -394,8 +397,9 @@ def ejercicio_siguiente():
         }), 200
 
     except Exception as e:
-        print("Error en /tutor/ejercicio_siguiente:", str(e))
-        return jsonify({"error": str(e), "status": False}), 500
+        print("ERROR en ejercicio_siguiente:", e)
+        return jsonify({"status": False, "error": str(e)}), 500
+
     finally:
         cursor.close()
         con.close()
@@ -419,7 +423,7 @@ def responder():
     es_repaso        = (modo == "repaso")
 
     if not id_estudiante or not id_ejercicio or not id_opcion_sel:
-        return jsonify({"error": "Faltan campos obligatorios"}), 400
+        return jsonify({"status": False, "error": "Faltan campos obligatorios"}), 400
 
     con    = Conexion()
     cursor = con.cursor()
@@ -436,7 +440,7 @@ def responder():
         """, (id_opcion_sel,))
         row = cursor.fetchone()
         if not row:
-            return jsonify({"error": "Opción no encontrada"}), 404
+            return jsonify({"status": False, "error": "Opción no válida"}), 404
 
         es_correcta     = bool(row["es_correcta"])
         id_competencia  = row["id_competencia"]
@@ -598,8 +602,9 @@ def responder():
 
     except Exception as e:
         con.rollback()
-        print("Error en /tutor/responder:", e)
-        return jsonify({"error": str(e)}), 500
+        print("ERROR en /tutor/responder:", e)
+        return jsonify({"status": False, "error": str(e)}), 500
+
     finally:
         cursor.close()
         con.close()
@@ -631,6 +636,22 @@ def subir_desarrollo():
             (url_abs, id_respuesta)
         )
         con.commit()
+
+        return jsonify({
+            "status": True,
+            "message": "Desarrollo subido correctamente",
+            "desarrolloUrl": url_abs
+        }), 200
+
+    except Exception as e:
+        print("!! ERROR al guardar desarrollo:", e)
+        con.rollback()
+        return jsonify({
+            "status": False,
+            "message": f"Error al guardar el archivo: {str(e)}"
+        }), 500
+
+    finally:
         cursor.close()
         con.close()
 

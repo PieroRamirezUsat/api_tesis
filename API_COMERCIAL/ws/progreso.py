@@ -5,7 +5,6 @@ import json
 
 ws_progreso = Blueprint('ws_progreso', __name__, url_prefix='/progreso')
 
-
 # ==========================
 #  POST /progreso
 # ==========================
@@ -56,10 +55,7 @@ def listar_progreso():
 def resumen_progreso():
     id_estudiante = request.args.get('idEstudiante', type=int)
     if not id_estudiante:
-        return jsonify({
-            "status": False,
-            "mensaje": "idEstudiante es obligatorio"
-        }), 400
+        return jsonify({"status": False, "mensaje": "idEstudiante es obligatorio"}), 400
 
     con = Conexion()
     cur = con.cursor()
@@ -146,10 +142,7 @@ def resumen_progreso():
 def progreso_por_competencia():
     id_estudiante = request.args.get('idEstudiante', type=int)
     if not id_estudiante:
-        return jsonify({
-            "status": False,
-            "mensaje": "idEstudiante es obligatorio"
-        }), 400
+        return jsonify({"status": False, "mensaje": "idEstudiante es obligatorio"}), 400
 
     con    = Conexion()
     cursor = con.cursor()
@@ -207,7 +200,7 @@ def progreso_por_competencia():
         print("Error en /progreso/por_competencia:", str(e))
         return jsonify({"status": False, "mensaje": str(e)}), 500
     finally:
-        cursor.close()
+        cur.close()
         con.close()
 
 
@@ -223,10 +216,7 @@ def historial_progreso():
     offset        = request.args.get('offset', default=0, type=int)
 
     if not id_estudiante:
-        return jsonify({
-            "status": False,
-            "mensaje": "idEstudiante es obligatorio"
-        }), 400
+        return jsonify({"status": False, "mensaje": "idEstudiante es obligatorio"}), 400
 
     con = Conexion()
     cur = con.cursor()
@@ -242,6 +232,8 @@ def historial_progreso():
         cur.execute("""
             SELECT
                 p.id_progreso,
+                p.fecha,
+                p.estado,
                 p.id_ejercicio,
                 p.estado,
                 p.fecha,

@@ -12,6 +12,25 @@ ws_dashboard = Blueprint('ws_dashboard', __name__, url_prefix='/dashboard')
 # ========================================
 @ws_dashboard.route('/mini/<int:id_estudiante>', methods=['GET'])
 def mini_dashboard(id_estudiante: int):
+    """
+    Mini dashboard para el estudiante.
+
+    Ahora usa la MISMA lógica que:
+      - /progreso/resumen  -> completitud global (ejercicios resueltos / totales)
+      - /progreso/por_competencia -> completitud por competencia
+
+    Respuesta:
+    {
+      "saludo": "Juan",
+      "progresoGeneral": 12,   # 0..100, completitud global
+      "promedio": 65,          # promedio de puntajes (0..100)
+      "temas": [
+        {"nombre": "Resuelve problemas de cantidad", "porcentaje": 0},
+        {"nombre": "Resuelve problemas de regularidad, equivalencia y cambio", "porcentaje": 10},
+        ...
+      ]
+    }
+    """
     con = Conexion()
     cur = con.cursor()
     try:
@@ -47,7 +66,8 @@ def mini_dashboard(id_estudiante: int):
             SELECT
                 c.id_competencia,
                 c.descripcion,
-                AVG(p.puntaje) AS promedio
+                COUNT(DISTINCT e.id_ejercicio) AS total_ejercicios,
+                COUNT(DISTINCT r.id_ejercicio) AS resueltos
             FROM competencias c
             LEFT JOIN puntajes p
                    ON p.id_competencia = c.id_competencia

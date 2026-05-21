@@ -13,16 +13,43 @@ def _imagen_url(raw: str | None) -> str | None:
 ws_ejercicio = Blueprint("ws_ejercicio", __name__, url_prefix="/ejercicios")
 
 
+def _normalizar_imagen_rel(imagen_db: str | None) -> str | None:
+    """
+    Devuelve SIEMPRE:
+      - None si no hay imagen
+      - una ruta que empieza por '/static/...'
+    No arma URLs absolutas, eso lo hace la app móvil.
+    """
+    if not imagen_db:
+        return None
+
+    path = imagen_db.strip()
+
+    # Si por alguna razón ya guardaste una URL absoluta, la dejamos tal cual.
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+
+    # /static/...
+    if path.startswith("/static/"):
+        return path
+
+    # static/...
+    if path.startswith("static/"):
+        return "/" + path
+
+    # /ejercicios_ayuda/ej_4.jpg  -> /static/ejercicios_ayuda/ej_4.jpg
+    if path.startswith("/"):
+        return "/static" + path
+
+    # ej_4.jpg o ejercicios_ayuda/ej_4.jpg -> /static/ejercicios_ayuda/ej_4.jpg
+    return "/static/" + path
+
+
 # ============================
 #  GET /ejercicios
-#  Lista TODOS los ejercicios
 # ============================
 @ws_ejercicio.route("", methods=["GET"])
 def listar_ejercicios():
-    """
-    Devuelve TODOS los ejercicios, de TODAS las competencias.
-    Pensado para pruebas de API o listados generales.
-    """
     con = Conexion()
     cursor = con.cursor()
 
@@ -75,13 +102,9 @@ def listar_ejercicios():
 
 # ============================
 #  GET /ejercicios/<id>
-#  Detalle de un ejercicio
 # ============================
 @ws_ejercicio.route("/<int:id_ejercicio>", methods=["GET"])
 def obtener_ejercicio(id_ejercicio: int):
-    """
-    Devuelve el detalle de un ejercicio específico, incluidas sus opciones.
-    """
     con = Conexion()
     cursor = con.cursor()
 
@@ -131,10 +154,12 @@ def obtener_ejercicio(id_ejercicio: int):
             for o in opciones_rows
         ]
 
+        imagen_norm = _normalizar_imagen_rel(ej["imagen_url"])
+
         data = {
             "idEjercicio": ej["id_ejercicio"],
             "enunciado": ej["descripcion"],
-            "imagenUrl": ej["imagen_url"],
+            "imagenUrl": imagen_norm,
             "respuestaCorrecta": ej["respuesta_correcta"],
             "pista": ej["pista"],
             "idCompetencia": ej["id_competencia"],
