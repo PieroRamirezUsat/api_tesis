@@ -9,11 +9,11 @@ BEGIN;
 
 -- ── 1) Corregir nivel_logro de ejercicios ──────────────────
 UPDATE ejercicios SET nivel_logro = 3 WHERE id_ejercicio = 106;  -- Básico
-UPDATE ejercicios SET nivel_logro = 4 WHERE id_ejercicio = 107;  -- Intermedio
+UPDATE ejercicios SET nivel_logro = 3 WHERE id_ejercicio = 107;  -- Básico  (comp1: 4B+4I+2A)
 UPDATE ejercicios SET nivel_logro = 4 WHERE id_ejercicio = 108;  -- Intermedio
 UPDATE ejercicios SET nivel_logro = 5 WHERE id_ejercicio = 109;  -- Intermedio
-UPDATE ejercicios SET nivel_logro = 5 WHERE id_ejercicio = 110;  -- Intermedio
-UPDATE ejercicios SET nivel_logro = 4 WHERE id_ejercicio = 111;  -- Intermedio
+UPDATE ejercicios SET nivel_logro = 6 WHERE id_ejercicio = 110;  -- Avanzado (comp1: 4B+4I+2A)
+UPDATE ejercicios SET nivel_logro = 3 WHERE id_ejercicio = 111;  -- Básico  (comp2: 4B+4I+2A)
 UPDATE ejercicios SET nivel_logro = 5 WHERE id_ejercicio = 112;  -- Intermedio
 UPDATE ejercicios SET nivel_logro = 6 WHERE id_ejercicio = 113;  -- Avanzado
 UPDATE ejercicios SET nivel_logro = 3 WHERE id_ejercicio = 114;  -- Básico
@@ -26,7 +26,7 @@ UPDATE ejercicios SET nivel_logro = 6 WHERE id_ejercicio = 120;  -- Avanzado
 UPDATE ejercicios SET nivel_logro = 2 WHERE id_ejercicio = 121;  -- Básico
 UPDATE ejercicios SET nivel_logro = 5 WHERE id_ejercicio = 122;  -- Intermedio
 UPDATE ejercicios SET nivel_logro = 3 WHERE id_ejercicio = 123;  -- Básico
-UPDATE ejercicios SET nivel_logro = 6 WHERE id_ejercicio = 124;  -- Avanzado
+UPDATE ejercicios SET nivel_logro = 5 WHERE id_ejercicio = 124;  -- Intermedio (comp4: 4B+4I+2A)
 UPDATE ejercicios SET nivel_logro = 6 WHERE id_ejercicio = 125;  -- Avanzado
 
 -- ── 2) Corregir nivel de materiales usando el mapeo ────────

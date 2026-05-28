@@ -25,7 +25,7 @@ UPDATE ejercicios SET palabras_clave = 'interés simple bono porcentaje capital'
 WHERE id_ejercicio = 106;
 
 UPDATE ejercicios SET palabras_clave = 'interés simple préstamo ganancia capital tasa',
-                      nivel_logro = 4                               -- Intermedio: calcular ganancia
+                      nivel_logro = 3                               -- Básico: aplicación directa
 WHERE id_ejercicio = 107;
 
 UPDATE ejercicios SET palabras_clave = 'interés simple límites tolerancia porcentaje',
@@ -37,12 +37,12 @@ UPDATE ejercicios SET palabras_clave = 'interés simple fórmula despejar tiempo
 WHERE id_ejercicio = 109;
 
 UPDATE ejercicios SET palabras_clave = 'interés simple cuotas precio crédito mensual',
-                      nivel_logro = 5                               -- Intermedio: cuotas mensuales
+                      nivel_logro = 6                               -- Avanzado: cuotas contexto financiero
 WHERE id_ejercicio = 110;
 
 -- ── Competencia 2 — Progresión Geométrica (ejr 111–113) e Inecuaciones (ejr 114–115) ──
 UPDATE ejercicios SET palabras_clave = 'progresión geométrica razón sucesión término ajedrez',
-                      nivel_logro = 4                               -- Intermedio: hallar razón
+                      nivel_logro = 3                               -- Básico: identificar razón
 WHERE id_ejercicio = 111;
 
 UPDATE ejercicios SET palabras_clave = 'progresión geométrica bacterias crecimiento exponencial',
@@ -96,7 +96,7 @@ UPDATE ejercicios SET palabras_clave = 'probabilidad espacio muestral eventos fr
 WHERE id_ejercicio = 123;
 
 UPDATE ejercicios SET palabras_clave = 'probabilidad condicional evento independiente deporte',
-                      nivel_logro = 6                               -- Avanzado: P(A|B)
+                      nivel_logro = 5                               -- Intermedio: P(A|B) guiado
 WHERE id_ejercicio = 124;
 
 UPDATE ejercicios SET palabras_clave = 'probabilidad monedas espacio muestral combinaciones',
@@ -123,14 +123,14 @@ INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, n
  'https://es.khanacademy.org/math/cc-seventh-grade-math/cc-7th-ratio-proportion/cc-7th-interest/v/introduction-to-interest',
  1, 106, 1);
 
--- ejr 107 — Sebastián, préstamo  [nivel_logro=4 → INTERMEDIO]
+-- ejr 107 — Sebastián, préstamo  [nivel_logro=3 → BÁSICO]
 INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, nivel) VALUES
 ('Calcular ganancia con Interés Simple', 'video',
  'https://www.youtube.com/results?search_query=interes+simple+calcular+ganancia+prestamo+capital',
- 1, 107, 2),
+ 1, 107, 1),
 ('Problemas de interés simple – Khan Academy', 'link',
  'https://es.khanacademy.org/math/cc-seventh-grade-math/cc-7th-ratio-proportion/cc-7th-interest',
- 1, 107, 2);
+ 1, 107, 1);
 
 -- ejr 108 — Límites de tolerancia  [nivel_logro=4 → INTERMEDIO]
 INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, nivel) VALUES
@@ -150,25 +150,25 @@ INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, n
  'https://es.khanacademy.org/math/cc-seventh-grade-math/cc-7th-ratio-proportion/cc-7th-interest',
  1, 109, 2);
 
--- ejr 110 — Cámara digital, cuotas  [nivel_logro=5 → INTERMEDIO]
+-- ejr 110 — Cámara digital, cuotas  [nivel_logro=6 → AVANZADO]
 INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, nivel) VALUES
 ('Interés Simple: calcular cuotas mensuales', 'video',
  'https://www.youtube.com/results?search_query=interes+simple+cuotas+mensuales+credito+precio+final',
- 1, 110, 2),
+ 1, 110, 3),
 ('Aplicaciones del interés simple – Khan Academy', 'link',
  'https://es.khanacademy.org/math/cc-seventh-grade-math/cc-7th-ratio-proportion/cc-7th-interest',
- 1, 110, 2);
+ 1, 110, 3);
 
 -- ══ COMPETENCIA 2: PROGRESIÓN GEOMÉTRICA E INECUACIONES ══════
 
--- ejr 111 — Ajedrez, razón  [nivel_logro=4 → INTERMEDIO]
+-- ejr 111 — Ajedrez, razón  [nivel_logro=3 → BÁSICO]
 INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, nivel) VALUES
 ('Progresión Geométrica: razón y primeros términos', 'video',
  'https://www.youtube.com/results?search_query=progresion+geometrica+razon+terminos+ejercicios+secundaria',
- 2, 111, 2),
+ 2, 111, 1),
 ('Introducción a sucesiones geométricas – Khan Academy', 'link',
  'https://es.khanacademy.org/math/algebra/x2f8bb11595b61c86:sequences/x2f8bb11595b61c86:introduction-to-geometric-sequences/v/geometric-sequences-introduction',
- 2, 111, 2);
+ 2, 111, 1);
 
 -- ejr 112 — Bacterias, crecimiento exponencial  [nivel_logro=5 → INTERMEDIO]
 INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, nivel) VALUES
@@ -282,14 +282,14 @@ INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, n
  'https://es.khanacademy.org/math/statistics-probability/probability-library/basic-theoretical-probability/v/basic-probability',
  4, 123, 1);
 
--- ejr 124 — Deporte, probabilidad condicional  [nivel_logro=6 → AVANZADO]
+-- ejr 124 — Deporte, probabilidad condicional  [nivel_logro=5 → INTERMEDIO]
 INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, nivel) VALUES
 ('Probabilidad condicional: eventos dependientes', 'video',
  'https://www.youtube.com/results?search_query=probabilidad+condicional+eventos+dependientes+independientes+ejercicios',
- 4, 124, 3),
+ 4, 124, 2),
 ('Probabilidad condicional – Khan Academy', 'link',
  'https://es.khanacademy.org/math/statistics-probability/probability-library/conditional-probability-independence/v/calculating-conditional-probability',
- 4, 124, 3);
+ 4, 124, 2);
 
 -- ejr 125 — Monedas, espacio muestral  [nivel_logro=6 → AVANZADO]
 INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, nivel) VALUES
