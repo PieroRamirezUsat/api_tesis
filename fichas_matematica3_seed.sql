@@ -119,8 +119,8 @@ INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, n
 ('Interés Simple: fórmula I=C·r·t y ejercicios', 'video',
  'https://www.youtube.com/results?search_query=interes+simple+formula+ejercicios+resueltos+secundaria',
  1, 106, 1),
-('Interés simple – Khan Academy', 'link',
- 'https://es.khanacademy.org/math/cc-seventh-grade-math/cc-7th-ratio-proportion/cc-7th-interest/v/introduction-to-interest',
+('Introduccion al interes simple - 3sec Lima', 'link',
+ 'https://es.khanacademy.org/math/3-secundaria-lima/xdad7ef9c8ed33de4:resuelve-problemas-de-cantidad/xdad7ef9c8ed33de4:interes-simple/v/interest-part-2',
  1, 106, 1);
 
 -- ejr 107 — Sebastián, préstamo  [nivel_logro=3 → BÁSICO]
@@ -129,7 +129,7 @@ INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, n
  'https://www.youtube.com/results?search_query=interes+simple+calcular+ganancia+prestamo+capital',
  1, 107, 1),
 ('Problemas de interés simple – Khan Academy', 'link',
- 'https://es.khanacademy.org/math/cc-seventh-grade-math/cc-7th-ratio-proportion/cc-7th-interest',
+ 'https://es.khanacademy.org/math/aritmetica-pe-pre-u/xce51e392da300f11:porcentajes/xce51e392da300f11:resolucion-de-situaciones-con-porcentajes/a/7319-resolucin-de-problemas-con-porcentajes-inters-simple',
  1, 107, 1);
 
 -- ejr 108 — Límites de tolerancia  [nivel_logro=4 → INTERMEDIO]
@@ -138,7 +138,7 @@ INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, n
  'https://www.youtube.com/results?search_query=interes+simple+porcentaje+aplicaciones+limites',
  1, 108, 2),
 ('Porcentajes e interés simple – Khan Academy', 'link',
- 'https://es.khanacademy.org/math/cc-seventh-grade-math/cc-7th-ratio-proportion/cc-7th-interest',
+ 'https://es.khanacademy.org/math/aritmetica-pe-pre-u/xce51e392da300f11:porcentajes/xce51e392da300f11:resolucion-de-situaciones-con-porcentajes/a/7319-resolucin-de-problemas-con-porcentajes-inters-simple',
  1, 108, 2);
 
 -- ejr 109 — Inmobiliaria, despejar el tiempo  [nivel_logro=5 → INTERMEDIO]
@@ -147,7 +147,7 @@ INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, n
  'https://www.youtube.com/results?search_query=interes+simple+despejar+tiempo+ejercicios+resueltos',
  1, 109, 2),
 ('Despejar variables en interés simple – Khan Academy', 'link',
- 'https://es.khanacademy.org/math/cc-seventh-grade-math/cc-7th-ratio-proportion/cc-7th-interest',
+ 'https://es.khanacademy.org/math/aritmetica-pe-pre-u/xce51e392da300f11:porcentajes/xce51e392da300f11:resolucion-de-situaciones-con-porcentajes/a/7319-resolucin-de-problemas-con-porcentajes-inters-simple',
  1, 109, 2);
 
 -- ejr 110 — Cámara digital, cuotas  [nivel_logro=6 → AVANZADO]
@@ -156,7 +156,7 @@ INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, n
  'https://www.youtube.com/results?search_query=interes+simple+cuotas+mensuales+credito+precio+final',
  1, 110, 3),
 ('Aplicaciones del interés simple – Khan Academy', 'link',
- 'https://es.khanacademy.org/math/cc-seventh-grade-math/cc-7th-ratio-proportion/cc-7th-interest',
+ 'https://es.khanacademy.org/math/aritmetica-pe-pre-u/xce51e392da300f11:porcentajes/xce51e392da300f11:resolucion-de-situaciones-con-porcentajes/a/7319-resolucin-de-problemas-con-porcentajes-inters-simple',
  1, 110, 3);
 
 -- ══ COMPETENCIA 2: PROGRESIÓN GEOMÉTRICA E INECUACIONES ══════
@@ -222,8 +222,8 @@ INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, n
 ('Transformaciones: traslación, rotación y reflexión', 'video',
  'https://www.youtube.com/results?search_query=tipos+transformaciones+geometricas+traslacion+rotacion+reflexion+secundaria',
  3, 117, 1),
-('Intro a las transformaciones rígidas – Khan Academy', 'link',
- 'https://es.khanacademy.org/math/geometry/hs-geo-transformations/hs-geo-intro-euclid/v/language-and-notation-of-basic-geometry',
+('Identificar transformaciones geometricas - Khan Academy', 'link',
+ 'https://es.khanacademy.org/math/geometry/hs-geo-transformations/hs-geo-transformations-intro/v/identifying-transformations',
  3, 117, 1);
 
 -- ejr 118 — Fotocopiadora, homotecia  [nivel_logro=4 → INTERMEDIO]
@@ -231,8 +231,8 @@ INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, n
 ('Homotecia: ampliación y reducción con escala', 'video',
  'https://www.youtube.com/results?search_query=homotecia+ampliacion+reduccion+escala+ejercicios+resueltos',
  3, 118, 2),
-('Dilataciones (homotecia) – Khan Academy', 'link',
- 'https://es.khanacademy.org/math/geometry/hs-geo-transformations/hs-geo-dilations/v/scaling-down-a-triangle-by-half',
+('Homotecias de triangulos: ampliacion y reduccion - Khan Academy', 'link',
+ 'https://es.khanacademy.org/math/geometry/hs-geo-transformations/hs-geo-dilations/v/dilating-triangles-find-the-error',
  3, 118, 2);
 
 -- ejr 119 — Puente, semejanza de triángulos  [nivel_logro=5 → INTERMEDIO]
@@ -240,8 +240,8 @@ INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, n
 ('Semejanza de triángulos: escala y proporciones', 'video',
  'https://www.youtube.com/results?search_query=semejanza+triangulos+escala+proporcion+ejercicios+secundaria',
  3, 119, 2),
-('Semejanza de triángulos – Khan Academy', 'link',
- 'https://es.khanacademy.org/math/geometry/hs-geo-similarity/hs-geo-triangle-similarity-intro/v/similar-triangles-1',
+('Postulados de semejanza de triangulos - Khan Academy', 'link',
+ 'https://es.khanacademy.org/math/geometry/hs-geo-similarity/hs-geo-triangle-similarity-intro/v/similarity-postulates',
  3, 119, 2);
 
 -- ejr 120 — Palmeras, semejanza y congruencia  [nivel_logro=6 → AVANZADO]
@@ -260,8 +260,8 @@ INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, n
 ('Cómo interpretar gráficos circulares', 'video',
  'https://www.youtube.com/results?search_query=interpretar+grafico+circular+estadistica+porcentaje+ejercicios',
  4, 121, 1),
-('Leer gráficos circulares – Khan Academy', 'link',
- 'https://es.khanacademy.org/math/statistics-probability/displaying-describing-data/displays-of-distributions/v/reading-pie-graphs',
+('Leer graficas circulares (pastel) - Khan Academy', 'link',
+ 'https://es.khanacademy.org/math/statistics-probability/analyzing-categorical-data/one-categorical-variable/v/reading-pie-graphs-circle-graphs',
  4, 121, 1);
 
 -- ejr 122 — Evaluaciones, medidas de dispersión  [nivel_logro=5 → INTERMEDIO]
@@ -269,8 +269,8 @@ INSERT INTO material_estudio (titulo, tipo, url, id_competencia, id_ejercicio, n
 ('Rango, varianza y desviación estándar: paso a paso', 'video',
  'https://www.youtube.com/results?search_query=medidas+dispersion+rango+varianza+desviacion+estandar+secundaria',
  4, 122, 2),
-('Varianza y desviación estándar – Khan Academy', 'link',
- 'https://es.khanacademy.org/math/statistics-probability/summarizing-quantitative-data/variance-standard-deviation-population/v/range-variance-and-standard-deviation-as-measures-of-dispersion',
+('Medidas de dispersion: rango varianza desviacion estandar - Khan Academy', 'link',
+ 'https://es.khanacademy.org/math/estadistica-y-probabilidad-pe-pre-u/x82899e311ce16938:estadistica/x82899e311ce16938:medidas-de-dispersion-varianza-y-desviacion-estandar-de-una-poblacion/v/range-variance-and-standard-deviation-as-measures-of-dispersion',
  4, 122, 2);
 
 -- ejr 123 — Debate, probabilidad básica  [nivel_logro=3 → BÁSICO]
