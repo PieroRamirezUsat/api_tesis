@@ -61,13 +61,17 @@ NIVEL_EJERCICIO_WHERE = {
 }
 
 # ── Tabla de pesos (delta score por respuesta) ───────────────────────────────
-# Tiempo: 'rapido' ≤30 s | 'regular' 31-90 s | 'lento' >90 s
+# Tiempo real de un ejercicio de álgebra secundaria (incluye resolver en papel,
+# sacar foto y subirla):
+#   'rapido'  ≤ 3 min (180 s) — domina el concepto, resuelve con fluidez
+#   'regular' 3-10 min (181-600 s) — tiempo normal para un alumno de secundaria
+#   'lento'   > 10 min (>600 s)   — dificultad real, necesita refuerzo
 # Delta positivo = sube score; negativo = baja score
 DELTA_SCORE = {
-    (True,  "rapido"):  +8,   # dominio total
-    (True,  "regular"): +5,   # buen manejo
+    (True,  "rapido"):  +8,   # dominio total: correcto y rápido
+    (True,  "regular"): +5,   # buen manejo: correcto a tiempo normal
     (True,  "lento"):   +2,   # lo logró con esfuerzo
-    (False, "rapido"):  -3,   # adivinó o fue impulsivo
+    (False, "rapido"):  -3,   # adivinó o fue impulsivo (incorrecto pero rápido)
     (False, "regular"): -3,   # no conoce bien el tema
     (False, "lento"):   -5,   # no comprende el concepto
 }
@@ -97,12 +101,19 @@ def score_to_progreso(score) -> int:
 
 
 def clasificar_tiempo(segundos) -> str:
+    """
+    Clasifica el tiempo de respuesta de un ejercicio de álgebra de secundaria.
+    El alumno debe resolver en papel, sacar foto y subirla → el tiempo real es largo.
+      rápido  : ≤ 180 s  (3 min)  — domina el concepto
+      regular : 181-600 s (3-10 min) — tiempo normal
+      lento   : > 600 s  (>10 min) — necesita refuerzo
+    """
     if segundos is None:
         return "regular"
     t = float(segundos)
-    if t <= 30:
+    if t <= 180:
         return "rapido"
-    if t <= 90:
+    if t <= 600:
         return "regular"
     return "lento"
 
