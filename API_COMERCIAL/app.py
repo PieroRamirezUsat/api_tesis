@@ -93,14 +93,18 @@ _EJERCICIOS_AYUDA = os.getenv(
     "EJERCICIOS_AYUDA_PATH",
     os.path.join(BASE_DIR, "static", "ejercicios_ayuda")   # funciona en Windows y Linux
 )
-print("📁 Ruta imágenes:", _EJERCICIOS_AYUDA)
-print("📁 ¿Existe?:", os.path.exists(_EJERCICIOS_AYUDA))
+_DESARROLLOS_ALUMNO = os.getenv(
+    "DESARROLLOS_ALUMNO_PATH",
+    os.path.join(BASE_DIR, "static", "desarrollos_alumno")
+)
+print("📁 Ejercicios ayuda:", _EJERCICIOS_AYUDA, "| existe:", os.path.exists(_EJERCICIOS_AYUDA))
+print("📁 Desarrollos alumno:", _DESARROLLOS_ALUMNO, "| existe:", os.path.exists(_DESARROLLOS_ALUMNO))
 
 
-@app.route('/ejercicios/imagen/<filename>')
-def servir_imagen_ejercicio(filename):
+def _servir_imagen(carpeta, filename):
+    """Sirve un archivo de imagen desde la carpeta indicada."""
     try:
-        filepath = os.path.join(_EJERCICIOS_AYUDA, filename)
+        filepath = os.path.join(carpeta, filename)
         if not os.path.exists(filepath):
             return jsonify({"error": "Imagen no encontrada"}), 404
         mime_type, _ = mimetypes.guess_type(filename)
@@ -108,6 +112,17 @@ def servir_imagen_ejercicio(filename):
         return send_file(filepath, mimetype=mime_type, max_age=3600)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/ejercicios/imagen/<filename>')
+def servir_imagen_ejercicio(filename):
+    return _servir_imagen(_EJERCICIOS_AYUDA, filename)
+
+
+@app.route('/desarrollos/imagen/<filename>')
+def servir_imagen_desarrollo(filename):
+    """Sirve las fotos del desarrollo del alumno para la app web (Railway)."""
+    return _servir_imagen(_DESARROLLOS_ALUMNO, filename)
 
 
 @app.route('/')
