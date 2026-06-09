@@ -665,7 +665,7 @@ def responder():
               float(tiempo_respuesta) if tiempo_respuesta else None,
               id_estudiante, id_ejercicio, modo))
 
-        delta       = calcular_delta(es_correcta, tiempo_respuesta)
+        delta       = calcular_delta(es_correcta, tiempo_respuesta, nivel_ejercicio)
         nuevo_score = max(0.0, min(100.0, score_actual + delta))
         nuevo_nivel = score_to_nivel(nuevo_score)
 
