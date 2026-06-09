@@ -91,10 +91,11 @@ app.register_blueprint(ws_dominio)
 
 _EJERCICIOS_AYUDA = os.getenv(
     "EJERCICIOS_AYUDA_PATH",
-    r"C:\Users\JUAN RAMIREZ\Desktop\proyecto_tesis_web\static\ejercicios_ayuda"
+    os.path.join(BASE_DIR, "static", "ejercicios_ayuda")   # funciona en Windows y Linux
 )
 print("📁 Ruta imágenes:", _EJERCICIOS_AYUDA)
 print("📁 ¿Existe?:", os.path.exists(_EJERCICIOS_AYUDA))
+
 
 @app.route('/ejercicios/imagen/<filename>')
 def servir_imagen_ejercicio(filename):

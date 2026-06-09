@@ -1,8 +1,35 @@
+# Entorno virtual
+venv/
+.venv/
+env/
+
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+
+# Variables de entorno (nunca subir al repo)
 .env
-.venv/
+*.env
+
+# Modelos ML — excluir por defecto, pero permitir el modelo del tutor
+*.joblib
 *.pkl
+!API_COMERCIAL/modelo_tutor.pkl
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Claude Code
 .claude/
+
+# Imágenes de desarrollos de alumnos (se generan en tiempo de ejecución)
 API_COMERCIAL/static/desarrollos_alumno/

@@ -33,8 +33,7 @@ def login():
     cur = con.cursor()
 
     try:
-        # ✅ CORREGIDO: hacemos JOIN con docente y estudiante
-        # para obtener id_docente o id_estudiante según el rol
+        
         cur.execute("""
             SELECT 
                 u.id_usuario,
@@ -59,7 +58,7 @@ def login():
                 'message': 'Credenciales inválidas'
             }), 401
 
-        # ✅ Armamos el user con id_docente e id_estudiante incluidos
+        
         user = {
             'id_usuario':   row['id_usuario'],
             'nombre':       row['nombre'],

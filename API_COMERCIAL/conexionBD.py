@@ -7,18 +7,22 @@ from config import Config
 class Conexion:
     def __init__(self):
         """
-        Prioriza DATABASE_URL (igual que la app web).
-        - En Render: ambos servicios deben tener la MISMA DATABASE_URL.
-        - En local: si no hay DATABASE_URL, usa los valores separados
-          (host, user, password, dbname, port) de Config.
+        Prioriza DATABASE_URL (Railway / Render la inyectan automáticamente).
+        - LOCAL   : sin SSL (localhost / 127.0.0.1)
+        - NUBE    : con sslmode='require' (Railway, Render, etc.)
+        - Si no hay DATABASE_URL, usa los parámetros separados de Config.
         """
         db_url = os.getenv("DATABASE_URL")
 
         if db_url:
-            # Modo nube (Render u otro servidor): cadena completa
-            self.dblink = psycopg2.connect(db_url)
+            # Modo nube: determina si es local o producción
+            es_local = "localhost" in db_url or "127.0.0.1" in db_url
+            if es_local:
+                self.dblink = psycopg2.connect(db_url)
+            else:
+                self.dblink = psycopg2.connect(db_url, sslmode="require")
         else:
-            # Modo local: conexión por parámetros separados
+            # Modo local: conexión por parámetros separados (sin SSL)
             self.dblink = psycopg2.connect(
                 host=Config.DB_HOST,
                 user=Config.DB_USER,
