@@ -153,6 +153,13 @@ DELTA_SCORE = {
     (False, "lento"):   -5,   # no comprende el concepto
 }
 
+# Penalización por usar la pista: acertar CON ayuda demuestra menos dominio
+# que acertar solo, así el alumno avanza más lento y permanece en la dificultad
+# actual hasta que pueda resolver sin apoyo. Solo recorta deltas positivos
+# (un fallo con pista ya tiene su delta negativo normal).
+PENALIZACION_PISTA = 3   # puntos que se restan al delta positivo
+DELTA_MIN_CON_PISTA = 1  # aun con pista, acertar nunca resta puntos
+
 # ── Estimado de ejercicios para subir de nivel (delta promedio ≈ +3) ─────────
 # Nivel 1→2: necesita +22 ≈ 7 ejercicios
 # Nivel n→n+1 (n≥2): necesita +14 ≈ 5 ejercicios
@@ -209,9 +216,20 @@ def clasificar_tiempo(segundos, nivel_ejercicio=None) -> str:
     return "lento"
 
 
-def calcular_delta(es_correcta: bool, tiempo_respuesta, nivel_ejercicio=None) -> int:
-    cat = clasificar_tiempo(tiempo_respuesta, nivel_ejercicio)
-    return DELTA_SCORE.get((bool(es_correcta), cat), 0)
+def calcular_delta(es_correcta: bool, tiempo_respuesta, nivel_ejercicio=None,
+                   uso_pista: bool = False) -> int:
+    """
+    Delta de score por respuesta. Si el alumno usó la pista y acertó,
+    el avance se reduce (PENALIZACION_PISTA) con un piso de +1:
+      correcto rápido  +8 → +5 con pista
+      correcto regular +5 → +2 con pista
+      correcto lento   +2 → +1 con pista
+    """
+    cat   = clasificar_tiempo(tiempo_respuesta, nivel_ejercicio)
+    delta = DELTA_SCORE.get((bool(es_correcta), cat), 0)
+    if uso_pista and delta > 0:
+        delta = max(DELTA_MIN_CON_PISTA, delta - PENALIZACION_PISTA)
+    return delta
 
 
 def nivel_display_texto(nivel_actual: int) -> str:

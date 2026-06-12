@@ -105,6 +105,18 @@ def register():
     if any(not data.get(k) for k in required):
         return jsonify({'status': False, 'message': 'Faltan campos'}), 400
 
+    # 🔒 La API pública solo registra ESTUDIANTES. Los docentes se registran
+    #    desde el portal web, que exige el código de institución
+    #    (CODIGO_REGISTRO_DOCENTE). Sin este guard, cualquiera podía crearse
+    #    una cuenta de docente enviando rol='docente' por Postman/curl.
+    rol_solicitado = (data.get('rol') or 'estudiante').strip().lower()
+    if rol_solicitado != 'estudiante':
+        return jsonify({
+            'status': False,
+            'message': 'Solo se permite el registro de estudiantes desde la aplicación. '
+                       'Los docentes deben registrarse en el portal web.'
+        }), 403
+
     con = Conexion()
     cur = con.cursor()
 
@@ -127,37 +139,26 @@ def register():
             data['apellidos'],
             data['correo'],
             hash_contra,
-            data.get('rol', 'estudiante')
+            'estudiante'          # rol fijo: el guard de arriba rechaza otros roles
         ))
 
         new_row = cur.fetchone()
         new_id  = new_row['id_usuario']
-        rol     = data.get('rol', 'estudiante')
+        rol     = 'estudiante'
 
-        id_estudiante = None
-        id_docente    = None
+        id_docente = None
 
-        if rol == 'estudiante':
-            cur.execute("""
-                INSERT INTO estudiante
-                    (id_usuario, grado,
-                     cantidad, regularidad_equivalencia_cambio,
-                     forma_movimiento_localizacion, gestion_datos_incertidumbre,
-                     progreso_general, estado_estudiante)
-                VALUES (%s, NULL, NULL, NULL, NULL, NULL, 0, 'activo')
-                RETURNING id_estudiante
-            """, (new_id,))
-            est_row       = cur.fetchone()
-            id_estudiante = est_row['id_estudiante'] if est_row else None
-
-        elif rol == 'docente':
-            cur.execute("""
-                INSERT INTO docente (especialidad, id_usuario)
-                VALUES ('Álgebra', %s)
-                RETURNING id_docente
-            """, (new_id,))
-            doc_row    = cur.fetchone()
-            id_docente = doc_row['id_docente'] if doc_row else None
+        cur.execute("""
+            INSERT INTO estudiante
+                (id_usuario, grado,
+                 cantidad, regularidad_equivalencia_cambio,
+                 forma_movimiento_localizacion, gestion_datos_incertidumbre,
+                 progreso_general, estado_estudiante)
+            VALUES (%s, NULL, NULL, NULL, NULL, NULL, 0, 'activo')
+            RETURNING id_estudiante
+        """, (new_id,))
+        est_row       = cur.fetchone()
+        id_estudiante = est_row['id_estudiante'] if est_row else None
 
         con.commit()
 

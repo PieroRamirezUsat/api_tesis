@@ -1,122 +1,17 @@
 from flask import Blueprint, request, jsonify
 from models.Usuario import Usuario
-from flask_jwt_extended import create_access_token
-from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.security import generate_password_hash
 import json
 
 ws_usuario = Blueprint('ws_usuario', __name__)
 
 
 # =========================================================
-# 0. LOGIN DE USUARIO  (USADO POR ANDROID: POST /usuario/login)
+# ❌ ENDPOINT ELIMINADO: POST /usuario/login (legacy)
+#    Duplicaba POST /auth/login (ws/auth.py), que es la versión correcta
+#    y la única que usa Android (AuthService). Se elimina para reducir
+#    superficie de ataque y no mantener dos logins en paralelo.
 # =========================================================
-@ws_usuario.route('/usuario/login', methods=['POST'])
-def login_usuario():
-    from conexionBD import Conexion
-    data = request.get_json() or {}
-
-    correo = (data.get('correo') or '').strip()
-    contrasena = (data.get('contrasena') or '').strip()
-
-    if not correo or not contrasena:
-        return jsonify({
-            "status": False,
-            "message": "Correo y contraseña son obligatorios"
-        }), 400
-
-    con = Conexion()
-    cur = con.cursor()
-
-    try:
-        # ⚠️  print eliminado: logueaba la contraseña en texto plano.
-        cur.execute("""
-            SELECT 
-                u.id_usuario,
-                u.nombre,
-                u.apellidos,
-                u.correo,
-                u.rol,
-                u.estado_usuario,
-                e.id_estudiante,
-                d.id_docente,
-                u.contrasena
-            FROM usuarios u
-            LEFT JOIN estudiante e ON e.id_usuario = u.id_usuario
-            LEFT JOIN docente   d ON d.id_usuario = u.id_usuario
-            WHERE u.correo = %s
-        """, (correo,))
-
-        row = cur.fetchone()
-        print("SQL RESULT:", row)
-
-        if not row:
-            return jsonify({
-                "status": False,
-                "message": "Correo no encontrado"
-            }), 401
-
-        if row["estado_usuario"] != 'activo':
-            return jsonify({
-                "status": False,
-                "message": "Usuario inactivo"
-            }), 403
-
-        password_db = row["contrasena"]
-
-        # 🔐 Comparar contra el hash almacenado
-        if (not password_db) or (not check_password_hash(password_db, contrasena)):
-            return jsonify({
-                "status": False,
-                "message": "Contraseña incorrecta"
-            }), 401
-
-        id_usuario    = row["id_usuario"]
-        nombre        = row["nombre"]
-        apellidos     = row["apellidos"]
-        correo_db     = row["correo"]
-        rol           = row["rol"]
-        estado        = row["estado_usuario"]
-        id_estudiante = row["id_estudiante"]
-        id_docente    = row["id_docente"]
-
-        additional_claims = {
-            "correo": correo_db,
-            "rol": rol,
-            "id_docente": id_docente,
-            "id_estudiante": id_estudiante
-        }
-
-        access_token = create_access_token(
-            identity=str(id_usuario),          # ✅ string
-            additional_claims=additional_claims
-        )
-
-        return jsonify({
-            "status": True,
-            "message": "Inicio de sesión satisfactorio. Bienvenido al sistema",
-            "token": access_token,
-            "data": {
-                "id_usuario": id_usuario,
-                "nombre": nombre,
-                "apellidos": apellidos,
-                "correo": correo_db,
-                "rol": rol,
-                "estado_usuario": estado,
-                "id_estudiante": id_estudiante,
-                "id_docente": id_docente
-            }
-        }), 200
-
-    except Exception as e:
-        print("ERROR LOGIN:", e)
-        return jsonify({
-            "status": False,
-            "message": str(e)
-        }), 500
-
-    finally:
-        cur.close()
-        con.close()
 
 
 # =========================================================

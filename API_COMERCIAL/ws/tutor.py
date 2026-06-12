@@ -449,8 +449,9 @@ def ejercicio_siguiente():
             where.append(nivel_where)
             print(f"🎯 ML='{nivel_predicho_texto}'→{nivel_para_ejercicio} | Filtro: {nivel_where}")
 
-        # ── Excluir ejercicios ya respondidos en este modo ────────────────
+        # ── Excluir ejercicios ya respondidos ─────────────────────────────
         if modo == "evaluacion":
+            # En evaluación cada pregunta se responde UNA sola vez
             where.append("""
                 NOT EXISTS(
                     SELECT 1 FROM respuestas_estudiantes r
@@ -460,12 +461,18 @@ def ejercicio_siguiente():
                 )
             """)
         else:
+            # Repetición espaciada: solo se excluyen los ejercicios ya
+            # respondidos CORRECTAMENTE en repaso. Los fallados vuelven a
+            # estar disponibles para verificar que el alumno ya domina el
+            # concepto (antes un ejercicio fallado no volvía a salir nunca).
             where.append("""
                 NOT EXISTS(
                     SELECT 1 FROM respuestas_estudiantes r
+                    JOIN opciones_ejercicio op_r ON op_r.id_opcion = r.id_opcion
                     WHERE r.id_ejercicio  = e.id_ejercicio
                       AND r.id_estudiante = %s
                       AND r.modo          = 'repaso'
+                      AND op_r.es_correcta
                 )
             """)
         params.append(id_estudiante)
@@ -479,6 +486,22 @@ def ejercicio_siguiente():
 
         where_clause = "WHERE " + " AND ".join(where) if where else ""
 
+        # En repaso: priorizar ejercicios NUNCA intentados; los fallados
+        # (disponibles por la repetición espaciada) salen cuando se agota
+        # el contenido nuevo del nivel.
+        orden_sql   = "ORDER BY RANDOM()"
+        params_main = list(params)
+        if modo != "evaluacion":
+            orden_sql = """
+                ORDER BY EXISTS(
+                    SELECT 1 FROM respuestas_estudiantes r2
+                    WHERE r2.id_ejercicio  = e.id_ejercicio
+                      AND r2.id_estudiante = %s
+                      AND r2.modo          = 'repaso'
+                ) ASC, RANDOM()
+            """
+            params_main.append(id_estudiante)
+
         cursor.execute(f"""
             SELECT e.id_ejercicio,
                    e.descripcion  AS enunciado,
@@ -490,9 +513,9 @@ def ejercicio_siguiente():
             FROM ejercicios e
             JOIN competencias c ON e.id_competencia = c.id_competencia
             {where_clause}
-            ORDER BY RANDOM()
+            {orden_sql}
             LIMIT 1
-        """, tuple(params))
+        """, tuple(params_main))
 
         ejercicio = cursor.fetchone()
 
@@ -688,7 +711,9 @@ def responder():
               float(tiempo_respuesta) if tiempo_respuesta else None,
               id_estudiante, id_ejercicio, modo))
 
-        delta       = calcular_delta(es_correcta, tiempo_respuesta, nivel_ejercicio)
+        # uso_pista reduce el delta positivo: acertar con ayuda avanza menos
+        delta       = calcular_delta(es_correcta, tiempo_respuesta, nivel_ejercicio,
+                                     uso_pista=uso_pista and es_repaso)
         nuevo_score = max(0.0, min(100.0, score_actual + delta))
         nuevo_nivel = score_to_nivel(nuevo_score)
 
@@ -997,7 +1022,11 @@ def sugerencias_ejercicios(id_estudiante: int, id_competencia: int):
             WHERE e.id_competencia = %s
               AND NOT EXISTS (
                 SELECT 1 FROM respuestas_estudiantes r
-                WHERE r.id_ejercicio = e.id_ejercicio AND r.id_estudiante = %s
+                JOIN opciones_ejercicio op_r ON op_r.id_opcion = r.id_opcion
+                WHERE r.id_ejercicio  = e.id_ejercicio
+                  AND r.id_estudiante = %s
+                  AND r.modo          = 'repaso'
+                  AND op_r.es_correcta
               )
               {filtro}
             ORDER BY RANDOM()
