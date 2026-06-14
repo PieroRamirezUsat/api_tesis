@@ -1,6 +1,8 @@
 from flask import Flask, jsonify, send_file
 import mimetypes
+from datetime import timedelta
 from flask_jwt_extended import JWTManager
+from extensions import limiter
 
 # 👇 AGREGAR ESTO JUSTO AQUÍ
 import os
@@ -36,7 +38,13 @@ from ws.dominio import ws_dominio
 app = Flask(__name__)
 
 app.config["JWT_SECRET_KEY"] = SecretKey.JWT_SECRET_KEY
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=8)
 jwt = JWTManager(app)
+limiter.init_app(app)
+
+@app.errorhandler(429)
+def ratelimit_handler(_e):
+    return jsonify({"status": False, "mensaje": "Demasiados intentos. Espera un momento e intenta de nuevo."}), 429
 
 
 # ── Migraciones automáticas de columnas (se ejecuta una sola vez al arrancar) ──
@@ -156,6 +164,11 @@ def servir_imagen_desarrollo(filename):
 @app.route('/')
 def home():
     return 'API del Sistema de Aprendizaje en Ejecución'
+
+
+@app.route('/health')
+def health():
+    return jsonify({"status": "ok", "service": "TutorMath API", "version": "1.0"}), 200
 
 if __name__ == '__main__':
     # Solo para tu PC

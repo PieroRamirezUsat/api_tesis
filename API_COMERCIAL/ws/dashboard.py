@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify
 from conexionBD import Conexion
 from models.scoring import nivel_to_progreso
+from flask_jwt_extended import jwt_required
 
 ws_dashboard = Blueprint('ws_dashboard', __name__, url_prefix='/dashboard')
 
@@ -10,6 +11,7 @@ ws_dashboard = Blueprint('ws_dashboard', __name__, url_prefix='/dashboard')
 # GET /dashboard/mini/<id_estudiante>
 # ========================================
 @ws_dashboard.route('/mini/<int:id_estudiante>', methods=['GET'])
+@jwt_required()
 def mini_dashboard(id_estudiante: int):
     """
     Mini dashboard para el estudiante.
@@ -135,6 +137,7 @@ def mini_dashboard(id_estudiante: int):
 # GET /dashboard/docente/<id_docente>
 # ========================================
 @ws_dashboard.route('/docente/<int:id_docente>', methods=['GET'])
+@jwt_required()
 def dashboard_docente(id_docente: int):
     con = Conexion()
     cur = con.cursor()
@@ -295,6 +298,7 @@ def dashboard_docente(id_docente: int):
 # Ranking de quién usa más la app
 # ========================================
 @ws_dashboard.route('/docente/<int:id_docente>/frecuencia', methods=['GET'])
+@jwt_required()
 def frecuencia_uso(id_docente: int):
     """
     Devuelve el ranking de estudiantes ordenado por
@@ -409,6 +413,7 @@ def frecuencia_uso(id_docente: int):
 # Usado por: panel web (reporte individual) + app móvil docente
 # ========================================
 @ws_dashboard.route('/docente/<int:id_docente>/materiales-stats', methods=['GET'])
+@jwt_required()
 def materiales_stats(id_docente: int):
     """
     Devuelve estadísticas de revisión de materiales de estudio para
@@ -511,6 +516,7 @@ def materiales_stats(id_docente: int):
 # Usado por: docente_dashboard.html (mini-card resumen del salón)
 # ========================================
 @ws_dashboard.route('/docente/<int:id_docente>/materiales-salon', methods=['GET'])
+@jwt_required()
 def materiales_salon(id_docente: int):
     """
     Resumen global de revisión de materiales para todos los estudiantes

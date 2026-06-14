@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from models.Progreso import Progreso
 from models.scoring import nivel_to_progreso, NIVEL_NOMBRE, BANDA_DIFICULTAD_SQL
 from conexionBD import Conexion
+from flask_jwt_extended import jwt_required
 import json
 
 ws_progreso = Blueprint('ws_progreso', __name__, url_prefix='/progreso')
@@ -10,6 +11,7 @@ ws_progreso = Blueprint('ws_progreso', __name__, url_prefix='/progreso')
 #  POST /progreso
 # ==========================
 @ws_progreso.route('', methods=['POST'])
+@jwt_required()
 def registrar_progreso():
     try:
         data = request.get_json(force=True)
@@ -40,6 +42,7 @@ def registrar_progreso():
 #  GET /progreso
 # ==========================
 @ws_progreso.route('', methods=['GET'])
+@jwt_required()
 def listar_progreso():
     try:
         return jsonify(json.loads(Progreso.listar_todos()))
@@ -53,6 +56,7 @@ def listar_progreso():
 #  ✅ Lecciones desde historial_material_estudio (nombre correcto)
 # ==========================
 @ws_progreso.route('/resumen', methods=['GET'])
+@jwt_required()
 def resumen_progreso():
     id_estudiante = request.args.get('idEstudiante', type=int)
     if not id_estudiante:
@@ -153,6 +157,7 @@ def resumen_progreso():
 #  ✅ Usa todos los puntajes (repaso + evaluación)
 # ==========================
 @ws_progreso.route('/por_competencia', methods=['GET'])
+@jwt_required()
 def progreso_por_competencia():
     id_estudiante = request.args.get('idEstudiante', type=int)
     if not id_estudiante:
@@ -228,6 +233,7 @@ def progreso_por_competencia():
 #  ✅ Soporta paginación
 # ==========================
 @ws_progreso.route('/historial', methods=['GET'])
+@jwt_required()
 def historial_progreso():
     id_estudiante = request.args.get('idEstudiante', type=int)
     limite        = request.args.get('limite', default=5, type=int)
@@ -344,6 +350,7 @@ def historial_progreso():
 #  DELETE /progreso/<id>
 # ==========================
 @ws_progreso.route('/<int:id_progreso>', methods=['DELETE'])
+@jwt_required()
 def eliminar_progreso(id_progreso):
     try:
         return jsonify(json.loads(Progreso.eliminar(id_progreso)))
@@ -357,6 +364,7 @@ def eliminar_progreso(id_progreso):
 #  Devuelve puntos reales agrupados por hora para el gráfico lineal
 # ==========================
 @ws_progreso.route('/chart', methods=['GET'])
+@jwt_required()
 def progreso_chart():
     id_estudiante = request.args.get('idEstudiante', type=int)
     if not id_estudiante:
@@ -426,6 +434,7 @@ def progreso_chart():
 #  }
 # ==========================
 @ws_progreso.route('/tiempo_por_nivel', methods=['GET'])
+@jwt_required()
 def tiempo_por_nivel():
     id_estudiante = request.args.get('idEstudiante', type=int)
     if not id_estudiante:

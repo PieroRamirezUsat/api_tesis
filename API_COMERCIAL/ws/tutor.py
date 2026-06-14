@@ -6,6 +6,7 @@ import urllib.parse
 import numpy as np
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
+from flask_jwt_extended import jwt_required
 from conexionBD import Conexion
 from models.scoring import (
     calcular_delta, score_to_nivel, nivel_to_progreso,
@@ -189,7 +190,7 @@ def predecir_nivel_competencia(cursor, id_estudiante, id_competencia):
     nivel_base = nivel_display_texto(nivel_actual)
     print(f"📋 NEC comp={id_competencia}: nivel_actual={nivel_actual} → base='{nivel_base}'")
 
-    if MODELO_TUTOR is not None and nivel_actual > 2:
+    if MODELO_TUTOR is not None:
         X = calcular_features_competencia(cursor, id_estudiante, id_competencia)
         if X is not None:
             try:
@@ -238,6 +239,7 @@ def actualizar_progreso_estudiante(cursor, id_estudiante):
 #  GET /tutor/ejercicio_siguiente
 # =========================================================
 @ws_tutor.route("/ejercicio_siguiente", methods=["GET"])
+@jwt_required()
 def ejercicio_siguiente():
     id_estudiante = request.args.get("idEstudiante", type=int)
     id_dominio    = request.args.get("idDominio",    type=int)
@@ -394,7 +396,7 @@ def ejercicio_siguiente():
                 nivel_base_ver, _ = leer_nec(cursor, id_estudiante, id_dominio)
             else:
                 cursor.execute("""
-                    SELECT COALESCE(MIN(nivel_actual), 1) AS nivel_min
+                    SELECT COALESCE(ROUND(AVG(nivel_actual))::int, 1) AS nivel_min
                     FROM nivel_estudiante_competencia
                     WHERE id_estudiante = %s AND id_competencia BETWEEN 1 AND 4
                 """, (id_estudiante,))
@@ -410,7 +412,7 @@ def ejercicio_siguiente():
                 nivel_base_ajuste, _ = leer_nec(cursor, id_estudiante, id_dominio)
             else:
                 cursor.execute("""
-                    SELECT COALESCE(MIN(nivel_actual), 1) AS nivel_min
+                    SELECT COALESCE(ROUND(AVG(nivel_actual))::int, 1) AS nivel_min
                     FROM nivel_estudiante_competencia
                     WHERE id_estudiante = %s AND id_competencia BETWEEN 1 AND 4
                 """, (id_estudiante,))
@@ -430,7 +432,7 @@ def ejercicio_siguiente():
                 )
             else:
                 cursor.execute("""
-                    SELECT COALESCE(MIN(nivel_actual), 1) AS nivel_min
+                    SELECT COALESCE(ROUND(AVG(nivel_actual))::int, 1) AS nivel_min
                     FROM nivel_estudiante_competencia
                     WHERE id_estudiante = %s AND id_competencia BETWEEN 1 AND 4
                 """, (id_estudiante,))
@@ -448,18 +450,23 @@ def ejercicio_siguiente():
             banda_ml  = _ORDEN_BANDA.get(nivel_predicho_texto, banda_nec)
             if banda_ml > banda_nec:
                 nivel_para_ejercicio = min(7, nivel_actual_int + 1)
+                ajuste_ml = +1
             elif banda_ml < banda_nec:
                 nivel_para_ejercicio = max(1, nivel_actual_int - 1)
+                ajuste_ml = -1
             else:
                 nivel_para_ejercicio = nivel_actual_int
+                ajuste_ml = 0
 
-            # 3) Ajuste por racha aplicado sobre el nivel predicho por ML
+            # 3) Ajuste por racha. Si el ML ya desplazó en la misma dirección,
+            #    la racha NO suma un segundo nivel para evitar saltos de +2 con
+            #    banco de ejercicios pequeño. Solo actúa cuando el ML no desplazó.
             if id_dominio:
                 racha = detectar_racha(cursor, id_estudiante, id_dominio)
-                if racha == "positiva":
+                if racha == "positiva" and ajuste_ml <= 0:
                     nivel_para_ejercicio = min(7, nivel_para_ejercicio + 1)
                     print(f"🔥 Racha positiva → nivel_ejercicio={nivel_para_ejercicio}")
-                elif racha == "negativa":
+                elif racha == "negativa" and ajuste_ml >= 0:
                     nivel_para_ejercicio = max(1, nivel_para_ejercicio - 1)
                     print(f"❄️ Racha negativa → nivel_ejercicio={nivel_para_ejercicio}")
 
@@ -664,6 +671,7 @@ def ejercicio_siguiente():
 #  POST /tutor/responder
 # =========================================================
 @ws_tutor.route("/responder", methods=["POST"])
+@jwt_required()
 def responder():
     data = request.get_json() or {}
 
@@ -687,7 +695,8 @@ def responder():
         cursor.execute("""
             SELECT o.es_correcta,
                    e.id_competencia,
-                   COALESCE(e.nivel_logro, e.nivel, 1) AS nivel_ejercicio
+                   COALESCE(e.nivel_logro, e.nivel, 1) AS nivel_ejercicio,
+                   e.pista
             FROM opciones_ejercicio o
             JOIN ejercicios e ON e.id_ejercicio = o.id_ejercicio
             WHERE o.id_opcion = %s
@@ -699,6 +708,7 @@ def responder():
         es_correcta     = bool(row["es_correcta"])
         id_competencia  = row["id_competencia"]
         nivel_ejercicio = row["nivel_ejercicio"]
+        pista_ejercicio = (row.get("pista") or "").strip()
 
         # 2) Registrar respuesta
         cursor.execute("""
@@ -781,7 +791,7 @@ def responder():
                 if racha_n1 == "negativa":
                     nuevo_ajuste = "mas_facil"
                     mensaje = "Repasa los materiales de apoyo. ¡Toma tu tiempo!"
-            mostrar_pista = es_repaso
+            mostrar_pista = es_repaso and bool(pista_ejercicio)
 
         # Nivel global (promedio de las 4 competencias)
         cursor.execute("""
@@ -959,7 +969,12 @@ def responder():
 # =========================================================
 #  POST /tutor/subir_desarrollo
 # =========================================================
+_ALLOWED_DESARROLLO_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf"}
+_MAX_DESARROLLO_BYTES   = 10 * 1024 * 1024  # 10 MB
+
+
 @ws_tutor.route("/subir_desarrollo", methods=["POST"])
+@jwt_required()
 def subir_desarrollo():
     id_respuesta = request.form.get("idRespuesta", type=int)
     archivo      = request.files.get("archivo")
@@ -967,7 +982,23 @@ def subir_desarrollo():
     if not id_respuesta or not archivo:
         return jsonify({"status": False, "message": "idRespuesta y archivo son obligatorios"}), 400
 
-    ext         = os.path.splitext(archivo.filename)[1].lower()
+    ext = os.path.splitext(archivo.filename or "")[1].lower()
+    if ext not in _ALLOWED_DESARROLLO_EXT:
+        return jsonify({
+            "status":  False,
+            "message": "Tipo de archivo no permitido. Solo se aceptan imágenes (jpg, png, gif, webp) y PDF.",
+        }), 400
+
+    # Verificar tamaño sin cargar el archivo completo en memoria
+    archivo.seek(0, 2)
+    size = archivo.tell()
+    archivo.seek(0)
+    if size > _MAX_DESARROLLO_BYTES:
+        return jsonify({
+            "status":  False,
+            "message": "El archivo supera el tamaño máximo permitido (10 MB).",
+        }), 400
+
     filename    = secure_filename(f"resp_{id_respuesta}{ext}")
     ruta_fisica = os.path.join(DESARROLLOS_FOLDER, filename)
 
@@ -1013,6 +1044,7 @@ def subir_desarrollo():
 #  GET /tutor/nivel_actual
 # =========================================================
 @ws_tutor.route("/nivel_actual", methods=["GET"])
+@jwt_required()
 def nivel_actual():
     id_estudiante  = request.args.get("idEstudiante",  type=int)
     id_competencia = request.args.get("idCompetencia", type=int)
@@ -1051,6 +1083,7 @@ def nivel_actual():
 #  GET /tutor/sugerencias/<id_est>/<id_comp>
 # =========================================================
 @ws_tutor.route("/sugerencias/<int:id_estudiante>/<int:id_competencia>", methods=["GET"])
+@jwt_required()
 def sugerencias_ejercicios(id_estudiante: int, id_competencia: int):
     limite = request.args.get("limite", default=5, type=int)
     con    = Conexion()
@@ -1131,6 +1164,7 @@ def sugerencias_ejercicios(id_estudiante: int, id_competencia: int):
 #  GET /tutor/evaluacion/activa
 # =========================================================
 @ws_tutor.route("/evaluacion/activa", methods=["GET"])
+@jwt_required()
 def evaluacion_activa():
     id_estudiante = request.args.get("idEstudiante", type=int)
     if not id_estudiante:
@@ -1186,6 +1220,7 @@ def evaluacion_activa():
 #  POST /tutor/evaluacion/finalizar
 # =========================================================
 @ws_tutor.route("/evaluacion/finalizar", methods=["POST"])
+@jwt_required()
 def finalizar_evaluacion():
     data          = request.get_json() or {}
     id_estudiante = data.get("idEstudiante")
@@ -1229,6 +1264,7 @@ def finalizar_evaluacion():
 #  POST /tutor/material/abrir
 # =========================================================
 @ws_tutor.route("/material/abrir", methods=["POST"])
+@jwt_required()
 def registrar_apertura_material():
     data          = request.get_json() or {}
     id_estudiante = data.get("idEstudiante")

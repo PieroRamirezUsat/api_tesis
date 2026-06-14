@@ -4,6 +4,7 @@ import os, secrets, string, smtplib
 from email.message import EmailMessage
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
+from extensions import limiter
 
 ws_auth = Blueprint('ws_auth', __name__)
 
@@ -25,6 +26,7 @@ SMTP_PASS = os.environ.get("SMTP_PASS", "")
 # LOGIN (para API móvil)
 # -------------------------------------------------------------------
 @ws_auth.route('/auth/login', methods=['POST'])
+@limiter.limit("5 per minute")
 def login():
     data = request.get_json() or {}
     correo = data.get('correo')
@@ -98,6 +100,7 @@ def login():
 # REGISTRO
 # -------------------------------------------------------------------
 @ws_auth.route('/auth/register', methods=['POST'])
+@limiter.limit("10 per hour")
 def register():
     data = request.get_json() or {}
     required = ('nombre', 'apellidos', 'correo', 'contrasena')
@@ -202,6 +205,7 @@ def register():
 # RECUPERAR CONTRASEÑA
 # -------------------------------------------------------------------
 @ws_auth.route('/auth/recuperar', methods=['POST'])
+@limiter.limit("3 per 10 minutes")
 def recuperar_contrasena():
     data   = request.get_json() or {}
     correo = data.get('correo', '').strip()
