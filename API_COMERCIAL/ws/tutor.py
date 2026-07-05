@@ -345,9 +345,15 @@ def ejercicio_siguiente():
                                 imagen_url_pre = None
                                 img_bd = ej_pre.get("imagen_url")
                                 if img_bd:
-                                    base           = request.host_url.rstrip("/")
-                                    nombre         = os.path.basename(img_bd)
-                                    imagen_url_pre = f"{base}/ejercicios/imagen/{nombre}"
+                                    if img_bd.startswith(("http://", "https://")):
+                                        # URL absoluta (Cloudinary): usar tal cual.
+                                        # Antes se le extraía el basename y se
+                                        # reconstruía como archivo local → 404.
+                                        imagen_url_pre = img_bd
+                                    else:
+                                        base           = request.host_url.rstrip("/")
+                                        nombre         = os.path.basename(img_bd)
+                                        imagen_url_pre = f"{base}/ejercicios/imagen/{nombre}"
 
                                 cursor.execute("""
                                     SELECT id_opcion, letra, descripcion
@@ -612,9 +618,14 @@ def ejercicio_siguiente():
 
         imagen_url_bd = ejercicio.get("imagen_url")
         if imagen_url_bd:
-            base       = request.host_url.rstrip("/")
-            nombre     = os.path.basename(imagen_url_bd)
-            imagen_url = f"{base}/ejercicios/imagen/{nombre}"
+            if imagen_url_bd.startswith(("http://", "https://")):
+                # URL absoluta (Cloudinary): usar tal cual. Antes se le extraía
+                # el basename y se reconstruía como archivo local → 404.
+                imagen_url = imagen_url_bd
+            else:
+                base       = request.host_url.rstrip("/")
+                nombre     = os.path.basename(imagen_url_bd)
+                imagen_url = f"{base}/ejercicios/imagen/{nombre}"
         else:
             imagen_url = None
 
