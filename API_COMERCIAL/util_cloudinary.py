@@ -58,6 +58,7 @@ def subir_imagen(archivo, public_id: str) -> str:
         archivo,
         public_id     = public_id,
         overwrite     = True,
+        invalidate    = True,   # purga el CDN al reemplazar (evita fotos viejas cacheadas)
         resource_type = "image",
         format        = "jpg",
     )
