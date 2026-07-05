@@ -460,6 +460,11 @@ def tiempo_por_nivel():
             WHERE r.id_estudiante    = %s
               AND r.tiempo_respuesta IS NOT NULL
               AND r.tiempo_respuesta > 0
+              -- Descarta respuestas con tiempo corrupto (un bug del cliente
+              -- llegó a enviar el epoch Unix completo como "segundos de
+              -- respuesta" al restaurar un ejercicio ya cargado). 1h es un
+              -- techo generoso para responder un solo ejercicio.
+              AND r.tiempo_respuesta < 3600
             GROUP BY 1
             ORDER BY 1
         """, (id_estudiante,))
