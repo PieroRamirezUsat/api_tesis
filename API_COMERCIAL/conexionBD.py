@@ -1,3 +1,16 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  📚 GUÍA DE ESTUDIO — CONEXIÓN A LA BASE DE DATOS (API)
+# ═══════════════════════════════════════════════════════════════════════════
+#  Cada endpoint crea su propia Conexion() y la cierra al terminar (patrón
+#  try/finally). OJO: esta API usa psycopg2 con RealDictCursor → las filas
+#  se leen como DICCIONARIOS (row["columna"]). El proyecto web usa psycopg
+#  v3 con tuplas (row[0]) — no confundir los dos estilos al copiar código
+#  entre proyectos.
+#
+#  Prioridad de configuración:
+#  1. DATABASE_URL (la inyecta Railway en producción; con SSL si no es local)
+#  2. PGHOST/PGUSER/... de config.py (desarrollo local, sin SSL)
+# ═══════════════════════════════════════════════════════════════════════════
 import os
 import psycopg2
 import psycopg2.extras

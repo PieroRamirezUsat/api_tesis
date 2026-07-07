@@ -1,3 +1,20 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  📚 GUÍA DE ESTUDIO — AUTENTICACIÓN DE LA APP MÓVIL (JWT)
+# ═══════════════════════════════════════════════════════════════════════════
+#  Flujo de seguridad:
+#  · /auth/register — SOLO crea estudiantes (hay un guard que rechaza
+#    rol=docente: los docentes se registran en el portal web con el código
+#    de institución). Crea fila en usuarios + estudiante y devuelve token.
+#  · /auth/login — verifica la contraseña con check_password_hash (en la BD
+#    solo se guarda el HASH, nunca la contraseña en claro) y devuelve un
+#    JWT firmado con JWT_SECRET_KEY que la app manda en cada petición como
+#    "Authorization: Bearer <token>". Expira a las 8 h (config en app.py);
+#    cuando expira, la app recibe 401 y su interceptor redirige al login.
+#  · Los endpoints protegidos llevan el decorador @jwt_required().
+#  · Recuperación de contraseña: genera una temporal y la envía por Gmail
+#    (variables SMTP_USER/SMTP_PASS).
+#  · @limiter.limit(...) frena fuerza bruta (p. ej. 10 registros/hora).
+# ═══════════════════════════════════════════════════════════════════════════
 from flask import Blueprint, request, jsonify
 from conexionBD import Conexion
 import os, secrets, string, smtplib

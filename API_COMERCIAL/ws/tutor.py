@@ -1,4 +1,46 @@
 # ws_tutor.py
+# ═══════════════════════════════════════════════════════════════════════════
+#  📚 GUÍA DE ESTUDIO — EL CORAZÓN DEL TUTOR ADAPTATIVO
+# ═══════════════════════════════════════════════════════════════════════════
+#  Este módulo implementa el ciclo adaptativo completo que usa la app móvil.
+#  Es el archivo MÁS IMPORTANTE de la tesis. El ciclo es:
+#
+#    1. GET /tutor/ejercicio_siguiente
+#       · Lee el nivel del alumno en la competencia (tabla
+#         nivel_estudiante_competencia, "NEC" — la fuente autoritativa).
+#       · El modelo de ML (modelo_tutor.pkl, árbol de decisión cargado abajo)
+#         + la racha de aciertos deciden el "ajuste" (más fácil / igual /
+#         más difícil).
+#       · Elige al AZAR un ejercicio del banco cuya dificultad (nivel_logro
+#         1-7) esté en la banda [nivel-1, nivel+1] (ver NIVEL_EJERCICIO_WHERE
+#         en models/scoring.py). Por eso dos alumnos del mismo nivel pueden
+#         ver ejercicios distintos.
+#
+#    2. POST /tutor/responder
+#       · Valida la opción contra opciones_ejercicio.es_correcta (el cliente
+#         NUNCA decide si es correcta — siempre el servidor).
+#       · Guarda la respuesta en respuestas_estudiantes (tiempo, uso_pista).
+#       · Calcula el delta de score con models/scoring.calcular_delta()
+#         (+8/+5/+2 por acierto según velocidad, −3/−5 por fallo, la pista
+#         penaliza) y actualiza el NEC → el nivel puede subir o bajar.
+#       · Si falló: 1er fallo → devuelve la pista (mostrarPista);
+#         2do fallo → además materialSugerido (material_estudio vinculado a
+#         ESTE ejercicio por id_ejercicio) + recursosAdicionales (URLs de
+#         búsqueda YouTube/Web/PDF armadas con las palabras_clave).
+#
+#    3. POST /tutor/subir_desarrollo — foto del desarrollo en papel → va a
+#       Cloudinary (producción) o a disco (local). La URL queda en
+#       respuestas_estudiantes.desarrollo_url y el docente la ve en la web.
+#
+#  Otros endpoints: /evaluacion/* (modo examen creado por el docente, sin
+#  pistas), /nivel_actual (para la UI), /sugerencias (ejercicios recomendados
+#  por el ML), /material/abrir (registra en historial_material_estudio).
+#
+#  🔧 PARA CAMBIAR ALGO:
+#  · Reglas de puntos/tiempos/niveles → models/scoring.py (tablas al inicio).
+#  · Re-entrenar el modelo de ML → train_model.py (genera modelo_tutor.pkl).
+#  · Qué tan lejos del nivel se eligen ejercicios → NIVEL_EJERCICIO_WHERE.
+# ═══════════════════════════════════════════════════════════════════════════
 import os
 import json
 import pickle

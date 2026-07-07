@@ -1,3 +1,33 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  📚 GUÍA DE ESTUDIO — PUNTO DE ENTRADA DE LA API REST
+# ═══════════════════════════════════════════════════════════════════════════
+#  Esta API es el backend que consume la APP MÓVIL (la web docente es un
+#  proyecto Flask separado; ambos comparten la MISMA base de datos Postgres).
+#
+#  Arquitectura del archivo:
+#  · Se crea la app Flask, se configura JWT (los tokens que la app manda en
+#    el header "Authorization: Bearer ..." expiran a las 8 h) y el rate
+#    limiter (extensions.py).
+#  · Cada dominio del negocio vive en un Blueprint dentro de ws/ y se
+#    registra abajo con app.register_blueprint(). Para agregar un endpoint
+#    nuevo: crear/editar el archivo en ws/, definir la ruta en su blueprint,
+#    y si es un blueprint nuevo, registrarlo aquí.
+#  · _migrar_columnas_recursos(): mini-migración idempotente que corre al
+#    arrancar (ADD COLUMN IF NOT EXISTS). Así el esquema se auto-actualiza
+#    en Railway sin herramienta de migraciones formal.
+#  · Las rutas /ejercicios/imagen y /desarrollos/imagen sirven imágenes del
+#    DISCO local (modo desarrollo). En producción las imágenes viven en
+#    Cloudinary y estas rutas casi no se usan (la BD guarda URLs absolutas).
+#
+#  Blueprints más importantes para la tesis:
+#    ws/tutor.py    → ciclo adaptativo completo (LEER PRIMERO)
+#    ws/auth.py     → registro/login con JWT (werkzeug hashea contraseñas)
+#    ws/progreso.py → métricas para las pantallas de progreso/reportes
+#    models/scoring.py → TODAS las reglas de puntuación en un solo lugar
+#
+#  Despliegue: gunicorn ejecuta "app:app" (esta instancia global de abajo).
+#  Ver Procfile. En Railway el "Root Directory" es API_COMERCIAL.
+# ═══════════════════════════════════════════════════════════════════════════
 from flask import Flask, jsonify, send_file
 import mimetypes
 from datetime import timedelta
