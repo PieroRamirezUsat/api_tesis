@@ -915,12 +915,21 @@ def responder():
                     palabras_clave = _KW_COMP.get(id_competencia, "matemáticas álgebra")
 
                 # ── Capa 1: material específico enlazado al ejercicio ────────────
+                # Prioriza SIEMPRE el material DIRECTO (página/video/pdf que
+                # enseña el tema) sobre los de tipo búsqueda (youtube results /
+                # google search): las búsquedas ya están cubiertas por los 3
+                # botones de recursos adicionales de abajo.
+                _ORDEN_DIRECTO_PRIMERO = """
+                    ORDER BY (url LIKE '%%youtube.com/results%%'
+                              OR url LIKE '%%google.%%/search%%') ASC,
+                             RANDOM()
+                    LIMIT 1
+                """
                 cursor.execute("""
                     SELECT id_material, titulo, tipo, url
                     FROM material_estudio
                     WHERE id_ejercicio = %s
-                    ORDER BY RANDOM() LIMIT 1
-                """, (id_ejercicio,))
+                """ + _ORDEN_DIRECTO_PRIMERO, (id_ejercicio,))
                 mat = cursor.fetchone()
 
                 # ── Capa 2 (fallback): material genérico de la competencia ───────
@@ -931,8 +940,7 @@ def responder():
                         WHERE id_competencia = %s
                           AND nivel <= %s
                           AND (id_ejercicio IS NULL OR id_ejercicio = 0)
-                        ORDER BY RANDOM() LIMIT 1
-                    """, (id_competencia, nivel_mat))
+                    """ + _ORDEN_DIRECTO_PRIMERO, (id_competencia, nivel_mat))
                     mat = cursor.fetchone()
 
                 if mat:
