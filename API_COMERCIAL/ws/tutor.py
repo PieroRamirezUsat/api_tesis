@@ -744,6 +744,29 @@ def responder():
     cursor = con.cursor()
 
     try:
+        # 0) Mismo candado que ejercicio_siguiente: sin diagnóstico inicial
+        #    NO se registran respuestas. Cubre el caso de una app con un
+        #    ejercicio cacheado de otra cuenta (o un APK viejo) que intenta
+        #    responder saltándose el GET bloqueado.
+        cursor.execute("""
+            SELECT (cantidad IS NULL
+                    AND regularidad_equivalencia_cambio IS NULL
+                    AND forma_movimiento_localizacion   IS NULL
+                    AND gestion_datos_incertidumbre     IS NULL) AS sin_diagnostico
+            FROM estudiante
+            WHERE id_estudiante = %s
+        """, (id_estudiante,))
+        row_diag = cursor.fetchone()
+        if row_diag and row_diag.get("sin_diagnostico"):
+            return jsonify({
+                "status":    False,
+                "bloqueado": True,
+                "mensaje": (
+                    "Tu docente aún no ha registrado tu diagnóstico inicial. "
+                    "Contacta a tu profesor para que complete tu evaluación y puedas comenzar a practicar."
+                ),
+            }), 200
+
         # 1) Verificar opción
         cursor.execute("""
             SELECT o.es_correcta,
