@@ -11,6 +11,9 @@ ws_usuario = Blueprint('ws_usuario', __name__)
 # leer datos de los estudiantes (menores de edad). Las rutas públicas
 # (login/registro) viven en ws/auth.py y las de imágenes en app.py.
 from flask_jwt_extended import verify_jwt_in_request
+from ws._seguridad import (
+    verificar_es_mismo_usuario, verificar_acceso_usuario, verificar_acceso_estudiante,
+)
 
 @ws_usuario.before_request
 def _requiere_token_usuario():
@@ -29,6 +32,9 @@ def _requiere_token_usuario():
 # =========================================================
 @ws_usuario.route('/usuarios/<int:id_usuario>', methods=['PUT'])
 def actualizar_usuario(id_usuario):
+    err = verificar_es_mismo_usuario(id_usuario)
+    if err:
+        return err
     data = request.get_json()
     if not data or 'nombre' not in data or 'apellidos' not in data or 'correo' not in data or 'rol' not in data or 'estado_usuario' not in data:
         return jsonify({'status': False, 'message': 'Faltan parámetros'})
@@ -50,6 +56,9 @@ def actualizar_usuario(id_usuario):
 # =========================================================
 @ws_usuario.route('/usuarios/<int:id_usuario>', methods=['GET'])
 def obtener_usuario(id_usuario):
+    err = verificar_acceso_usuario(id_usuario)
+    if err:
+        return err
     from conexionBD import Conexion
     con = Conexion()
     cur = con.cursor()
@@ -81,6 +90,9 @@ def obtener_usuario(id_usuario):
 # =========================================================
 @ws_usuario.route('/usuarios/<int:id_usuario>', methods=['DELETE'])
 def eliminar_usuario(id_usuario):
+    err = verificar_es_mismo_usuario(id_usuario)
+    if err:
+        return err
     return jsonify(json.loads(Usuario.eliminar(id_usuario)))
 
 
@@ -89,6 +101,9 @@ def eliminar_usuario(id_usuario):
 # =========================================================
 @ws_usuario.route('/usuarios/por-estudiante/<int:id_estudiante>', methods=['GET'])
 def usuario_por_estudiante(id_estudiante):
+    err = verificar_acceso_estudiante(id_estudiante)
+    if err:
+        return err
     from conexionBD import Conexion
     con = Conexion()
     cur = con.cursor()
@@ -121,6 +136,14 @@ def usuario_por_estudiante(id_estudiante):
 # =========================================================
 @ws_usuario.route('/usuarios/<int:id_usuario>/perfil', methods=['PUT'])
 def actualizar_perfil(id_usuario):
+    # 🔒 IDOR: antes se usaba el id de la URL, así que un alumno podía editar
+    #    el perfil (¡y la contraseña!) de OTRO usuario. Ahora se ignora el id
+    #    de la URL y se opera SIEMPRE sobre el usuario del token.
+    from ws._seguridad import identidad
+    uid_token, _ = identidad()
+    if uid_token is None:
+        return jsonify({'status': False, 'message': 'No autorizado'}), 401
+    id_usuario = uid_token
     from conexionBD import Conexion
     data = request.get_json() or {}
 

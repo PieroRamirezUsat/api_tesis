@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify
 from conexionBD import Conexion
 from models.scoring import nivel_to_progreso
 from flask_jwt_extended import jwt_required
+from ws._seguridad import verificar_acceso_estudiante, verificar_es_docente
 
 ws_dashboard = Blueprint('ws_dashboard', __name__, url_prefix='/dashboard')
 
@@ -32,6 +33,9 @@ def mini_dashboard(id_estudiante: int):
       ]
     }
     """
+    err = verificar_acceso_estudiante(id_estudiante)
+    if err:
+        return err
     con = Conexion()
     cur = con.cursor()
     try:
@@ -139,6 +143,9 @@ def mini_dashboard(id_estudiante: int):
 @ws_dashboard.route('/docente/<int:id_docente>', methods=['GET'])
 @jwt_required()
 def dashboard_docente(id_docente: int):
+    err = verificar_es_docente(id_docente)
+    if err:
+        return err
     con = Conexion()
     cur = con.cursor()
 
@@ -331,6 +338,9 @@ def frecuencia_uso(id_docente: int):
       ]
     }
     """
+    err = verificar_es_docente(id_docente)
+    if err:
+        return err
     con = Conexion()
     cur = con.cursor()
 
@@ -450,6 +460,9 @@ def materiales_stats(id_docente: int):
       ]
     }
     """
+    err = verificar_es_docente(id_docente)
+    if err:
+        return err
     from flask import request as flask_request
     id_estudiante = flask_request.args.get('id_estudiante', type=int)
 
@@ -533,6 +546,9 @@ def materiales_salon(id_docente: int):
 
     Query param: id_salon (obligatorio)
     """
+    err = verificar_es_docente(id_docente)
+    if err:
+        return err
     from flask import request as flask_request
     id_salon = flask_request.args.get('id_salon', type=int)
 

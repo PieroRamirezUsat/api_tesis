@@ -12,10 +12,18 @@ ws_docente = Blueprint('ws_docente', __name__)
 # leer datos de los estudiantes (menores de edad). Las rutas públicas
 # (login/registro) viven en ws/auth.py y las de imágenes en app.py.
 from flask_jwt_extended import verify_jwt_in_request
+from ws._seguridad import verificar_es_docente, identidad
 
 @ws_docente.before_request
 def _requiere_token_docente():
     verify_jwt_in_request()
+
+def _solo_docentes():
+    """Guard para listados globales: solo cuentas con rol docente."""
+    _, rol = identidad()
+    if rol != 'docente':
+        return jsonify({'status': False, 'message': 'No autorizado'}), 403
+    return None
 
 # ========================================
 # CRUD BÁSICO DE DOCENTES
@@ -32,16 +40,25 @@ def crear_docente():
 
 @ws_docente.route('/docentes', methods=['GET'])
 def listar_docentes():
+    err = _solo_docentes()
+    if err:
+        return err
     return jsonify(json.loads(Docente.listar()))
 
 
 @ws_docente.route('/docentes/<int:id_docente>', methods=['GET'])
 def obtener_docente(id_docente):
+    err = verificar_es_docente(id_docente)
+    if err:
+        return err
     return jsonify(json.loads(Docente.obtener(id_docente)))
 
 
 @ws_docente.route('/docentes/<int:id_docente>', methods=['PUT'])
 def actualizar_docente(id_docente):
+    err = verificar_es_docente(id_docente)
+    if err:
+        return err
     data = request.get_json() or {}
     if 'especialidad' not in data:
         return jsonify({'status': False, 'message': 'Faltan parámetros'})
@@ -51,6 +68,9 @@ def actualizar_docente(id_docente):
 
 @ws_docente.route('/docentes/<int:id_docente>', methods=['DELETE'])
 def eliminar_docente(id_docente):
+    err = verificar_es_docente(id_docente)
+    if err:
+        return err
     return jsonify(json.loads(Docente.eliminar(id_docente)))
 
 
@@ -61,6 +81,9 @@ def eliminar_docente(id_docente):
 
 @ws_docente.route('/docentes/<int:id_docente>/dashboard', methods=['GET'])
 def docentes_dashboard(id_docente):
+    err = verificar_es_docente(id_docente)
+    if err:
+        return err
     return jsonify(json.loads(Docente.dashboard(id_docente)))
 
 
@@ -72,6 +95,9 @@ def docentes_dashboard(id_docente):
 
 @ws_docente.route('/docentes/<int:id_docente>/estudiantes', methods=['GET'])
 def docentes_estudiantes(id_docente):
+    err = verificar_es_docente(id_docente)
+    if err:
+        return err
     """
     Lista todos los estudiantes asignados al salón del docente.
     El nombre se devuelve como: "Apellidos, Nombre"
@@ -101,16 +127,17 @@ def docentes_estudiantes(id_docente):
                 e.id_estudiante,
                 -- ✅ Formato: "Apellidos, Nombre"
                 TRIM(u.apellidos) || ', ' || TRIM(u.nombre)  AS nombre,
+                -- Progreso con la MISMA fórmula que la web y el reporte
+                -- (nivel adaptativo NEC): (min(nivel,6)-1)*20 promediado en las
+                -- 4 competencias. Antes usaba AVG(puntajes) (= % de acierto),
+                -- así que la lista de la app mostraba un número distinto al de
+                -- la web para el mismo alumno.
                 COALESCE(
                     (
-                        SELECT ROUND(AVG(sub.promedio_comp))
-                        FROM (
-                            SELECT AVG(p.puntaje) AS promedio_comp
-                            FROM puntajes p
-                            WHERE p.id_estudiante = e.id_estudiante
-                              AND p.id_competencia BETWEEN 1 AND 4
-                            GROUP BY p.id_competencia
-                        ) sub
+                        SELECT ROUND(AVG((LEAST(nec.nivel_actual, 6) - 1) * 20.0))::int
+                        FROM nivel_estudiante_competencia nec
+                        WHERE nec.id_estudiante  = e.id_estudiante
+                          AND nec.id_competencia BETWEEN 1 AND 4
                     ),
                     0
                 ) AS progreso
@@ -165,6 +192,9 @@ def docentes_estudiantes(id_docente):
 
 @ws_docente.route('/docentes/<int:id_docente>/alertas', methods=['GET'])
 def docentes_alertas(id_docente):
+    err = verificar_es_docente(id_docente)
+    if err:
+        return err
     con = Conexion()
     cur = con.cursor()
 

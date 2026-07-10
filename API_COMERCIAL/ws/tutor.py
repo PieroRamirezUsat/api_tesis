@@ -55,6 +55,7 @@ from models.scoring import (
     nivel_display_texto, NIVEL_EJERCICIO_WHERE, NIVEL_NOMBRE,
     DIFICULTAD_SQL,
 )
+from ws._seguridad import verificar_acceso_estudiante
 
 ws_tutor = Blueprint("ws_tutor", __name__, url_prefix="/tutor")
 
@@ -293,6 +294,13 @@ def ejercicio_siguiente():
 
     if not id_estudiante:
         return jsonify({"error": "idEstudiante es obligatorio", "status": False}), 400
+
+    # 🔒 Solo el propio alumno (o su docente) puede pedir ejercicios para ese id.
+    #    Además evita el 500 que ocurría con un idEstudiante inexistente/negativo
+    #    (leer_nec intentaba insertar un NEC con FK inválida).
+    err = verificar_acceso_estudiante(id_estudiante)
+    if err:
+        return err
 
     con    = Conexion()
     cursor = con.cursor()
@@ -740,6 +748,12 @@ def responder():
     if not id_estudiante or not id_ejercicio or not id_opcion_sel:
         return jsonify({"status": False, "error": "Faltan campos obligatorios"}), 400
 
+    # 🔒 Un alumno solo puede responder por SÍ mismo (no inyectar respuestas en
+    #    la cuenta de otro cambiando idEstudiante en el body).
+    err = verificar_acceso_estudiante(id_estudiante)
+    if err:
+        return err
+
     con    = Conexion()
     cursor = con.cursor()
 
@@ -1109,6 +1123,22 @@ def subir_desarrollo():
     if not id_respuesta or not archivo:
         return jsonify({"status": False, "message": "idRespuesta y archivo son obligatorios"}), 400
 
+    # 🔒 La respuesta debe ser del alumno del token (o de un alumno del docente):
+    #    evita subir un "desarrollo" a la respuesta de otro estudiante.
+    _con = Conexion()
+    _cur = _con.cursor()
+    try:
+        _cur.execute("SELECT id_estudiante FROM respuestas_estudiantes WHERE id_respuesta = %s", (id_respuesta,))
+        _row = _cur.fetchone()
+    finally:
+        _cur.close()
+        _con.close()
+    if not _row:
+        return jsonify({"status": False, "message": "Respuesta no encontrada"}), 404
+    err = verificar_acceso_estudiante(_row["id_estudiante"])
+    if err:
+        return err
+
     ext = os.path.splitext(archivo.filename or "")[1].lower()
     if ext not in _ALLOWED_DESARROLLO_EXT:
         return jsonify({
@@ -1179,6 +1209,10 @@ def nivel_actual():
     if not id_estudiante or not id_competencia:
         return jsonify({"status": False, "error": "idEstudiante e idCompetencia son obligatorios"}), 400
 
+    err = verificar_acceso_estudiante(id_estudiante)
+    if err:
+        return err
+
     con    = Conexion()
     cursor = con.cursor()
     try:
@@ -1212,6 +1246,9 @@ def nivel_actual():
 @ws_tutor.route("/sugerencias/<int:id_estudiante>/<int:id_competencia>", methods=["GET"])
 @jwt_required()
 def sugerencias_ejercicios(id_estudiante: int, id_competencia: int):
+    err = verificar_acceso_estudiante(id_estudiante)
+    if err:
+        return err
     limite = request.args.get("limite", default=5, type=int)
     con    = Conexion()
     cursor = con.cursor()
@@ -1297,6 +1334,10 @@ def evaluacion_activa():
     if not id_estudiante:
         return jsonify({"status": False, "error": "idEstudiante obligatorio"}), 400
 
+    err = verificar_acceso_estudiante(id_estudiante)
+    if err:
+        return err
+
     con    = Conexion()
     cursor = con.cursor()
     try:
@@ -1356,6 +1397,10 @@ def finalizar_evaluacion():
     if not id_estudiante or not id_evaluacion:
         return jsonify({"status": False, "error": "Faltan parámetros"}), 400
 
+    err = verificar_acceso_estudiante(id_estudiante)
+    if err:
+        return err
+
     con    = Conexion()
     cursor = con.cursor()
     try:
@@ -1399,6 +1444,10 @@ def registrar_apertura_material():
 
     if not id_estudiante or not id_material:
         return jsonify({"ok": False, "error": "Faltan parámetros"}), 400
+
+    err = verificar_acceso_estudiante(id_estudiante)
+    if err:
+        return err
 
     con    = Conexion()
     cursor = con.cursor()

@@ -3,6 +3,7 @@ from models.Progreso import Progreso
 from models.scoring import nivel_to_progreso, NIVEL_NOMBRE, BANDA_DIFICULTAD_SQL
 from conexionBD import Conexion
 from flask_jwt_extended import jwt_required
+from ws._seguridad import verificar_acceso_estudiante
 import json
 
 ws_progreso = Blueprint('ws_progreso', __name__, url_prefix='/progreso')
@@ -28,6 +29,10 @@ def registrar_progreso():
                 "mensaje": "Faltan campos obligatorios"
             }), 400
 
+        err = verificar_acceso_estudiante(id_estudiante)
+        if err:
+            return err
+
         resp = Progreso.registrar(
             id_estudiante, id_ejercicio,
             nivel_actual, estado, tiempo_respuesta
@@ -44,6 +49,12 @@ def registrar_progreso():
 @ws_progreso.route('', methods=['GET'])
 @jwt_required()
 def listar_progreso():
+    # Volcado global de progreso: solo docentes (no exponer la actividad de
+    # todos los alumnos a cualquier cuenta).
+    from ws._seguridad import identidad
+    _, rol = identidad()
+    if rol != 'docente':
+        return jsonify({"status": False, "mensaje": "No autorizado"}), 403
     try:
         return jsonify(json.loads(Progreso.listar_todos()))
     except Exception as e:
@@ -61,6 +72,10 @@ def resumen_progreso():
     id_estudiante = request.args.get('idEstudiante', type=int)
     if not id_estudiante:
         return jsonify({"status": False, "mensaje": "idEstudiante es obligatorio"}), 400
+
+    err = verificar_acceso_estudiante(id_estudiante)
+    if err:
+        return err
 
     con = Conexion()
     cur = con.cursor()
@@ -163,6 +178,10 @@ def progreso_por_competencia():
     if not id_estudiante:
         return jsonify({"status": False, "mensaje": "idEstudiante es obligatorio"}), 400
 
+    err = verificar_acceso_estudiante(id_estudiante)
+    if err:
+        return err
+
     con    = Conexion()
     cursor = con.cursor()
     try:
@@ -241,6 +260,10 @@ def historial_progreso():
 
     if not id_estudiante:
         return jsonify({"status": False, "mensaje": "idEstudiante es obligatorio"}), 400
+
+    err = verificar_acceso_estudiante(id_estudiante)
+    if err:
+        return err
 
     con = Conexion()
     cur = con.cursor()
@@ -370,6 +393,10 @@ def progreso_chart():
     if not id_estudiante:
         return jsonify({"status": False, "mensaje": "idEstudiante es obligatorio"}), 400
 
+    err = verificar_acceso_estudiante(id_estudiante)
+    if err:
+        return err
+
     con = Conexion()
     cur = con.cursor()
     try:
@@ -439,6 +466,10 @@ def tiempo_por_nivel():
     id_estudiante = request.args.get('idEstudiante', type=int)
     if not id_estudiante:
         return jsonify({"status": False, "mensaje": "idEstudiante es obligatorio"}), 400
+
+    err = verificar_acceso_estudiante(id_estudiante)
+    if err:
+        return err
 
     con = Conexion()
     cur = con.cursor()

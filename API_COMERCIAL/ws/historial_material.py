@@ -11,6 +11,7 @@ ws_historial_material = Blueprint('ws_historial_material', __name__, url_prefix=
 # leer datos de los estudiantes (menores de edad). Las rutas públicas
 # (login/registro) viven en ws/auth.py y las de imágenes en app.py.
 from flask_jwt_extended import verify_jwt_in_request
+from ws._seguridad import verificar_acceso_estudiante
 
 @ws_historial_material.before_request
 def _requiere_token_historial_material():
@@ -29,6 +30,10 @@ def registrar_historial():
 
     if not id_estudiante or not id_material:
         return jsonify({"status": False, "message": "Faltan parámetros"})
+
+    err = verificar_acceso_estudiante(id_estudiante)
+    if err:
+        return err
 
     # Escribe en historial_material_estudio (tabla activa usada por dominio y progreso)
     con = Conexion()
@@ -69,6 +74,9 @@ def registrar_historial():
 # ================================
 @ws_historial_material.route("/<int:id_estudiante>", methods=["GET"])
 def listar_historial(id_estudiante):
+    err = verificar_acceso_estudiante(id_estudiante)
+    if err:
+        return err
     return jsonify(json.loads(HistorialMaterial.listar(id_estudiante)))
 
 # Actualizar historial
@@ -91,6 +99,10 @@ def historial_materiales():
             "status": False,
             "mensaje": "idEstudiante es obligatorio"
         }), 400
+
+    err = verificar_acceso_estudiante(id_estudiante)
+    if err:
+        return err
 
     con = Conexion()
     cur = con.cursor()

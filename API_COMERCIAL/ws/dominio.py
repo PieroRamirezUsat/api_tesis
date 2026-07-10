@@ -9,6 +9,7 @@ ws_dominio = Blueprint("ws_dominio", __name__, url_prefix="/dominio")
 # leer datos de los estudiantes (menores de edad). Las rutas públicas
 # (login/registro) viven en ws/auth.py y las de imágenes en app.py.
 from flask_jwt_extended import verify_jwt_in_request
+from ws._seguridad import verificar_acceso_estudiante
 
 @ws_dominio.before_request
 def _requiere_token_dominio():
@@ -21,6 +22,9 @@ def _requiere_token_dominio():
 # ws_dominio.py
 @ws_dominio.route("/temas/<int:id_estudiante>", methods=["GET"])
 def listar_temas_dominio(id_estudiante):
+    err = verificar_acceso_estudiante(id_estudiante)
+    if err:
+        return err
     try:
         conn = Conexion()
         cur = conn.cursor()
