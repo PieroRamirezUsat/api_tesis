@@ -16,6 +16,16 @@ def _imagen_url(raw: str | None) -> str | None:
 
 ws_ejercicio = Blueprint("ws_ejercicio", __name__, url_prefix="/ejercicios")
 
+# ── Protección global del módulo ─────────────────────────────────────────
+# Todos los endpoints exigen un JWT válido (la app siempre lo envía en el
+# interceptor de Retrofit). Sin esto, cualquiera sin iniciar sesión podía
+# leer datos de los estudiantes (menores de edad). Las rutas públicas
+# (login/registro) viven en ws/auth.py y las de imágenes en app.py.
+from flask_jwt_extended import verify_jwt_in_request
+
+@ws_ejercicio.before_request
+def _requiere_token_ejercicio():
+    verify_jwt_in_request()
 
 def _normalizar_imagen_rel(imagen_db: str | None) -> str | None:
     """

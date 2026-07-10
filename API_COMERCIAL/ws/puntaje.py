@@ -7,6 +7,16 @@ import datetime
 
 ws_puntaje = Blueprint('ws_puntaje', __name__, url_prefix='/puntaje')
 
+# ── Protección global del módulo ─────────────────────────────────────────
+# Todos los endpoints exigen un JWT válido (la app siempre lo envía en el
+# interceptor de Retrofit). Sin esto, cualquiera sin iniciar sesión podía
+# leer datos de los estudiantes (menores de edad). Las rutas públicas
+# (login/registro) viven en ws/auth.py y las de imágenes en app.py.
+from flask_jwt_extended import verify_jwt_in_request
+
+@ws_puntaje.before_request
+def _requiere_token_puntaje():
+    verify_jwt_in_request()
 
 # ── helper: actualiza NEC con score directo (asignación docente) ─────────────
 def _sync_nec_desde_puntaje(cursor, id_estudiante, id_competencia, score_directo):

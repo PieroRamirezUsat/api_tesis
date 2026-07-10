@@ -767,7 +767,10 @@ def responder():
                 ),
             }), 200
 
-        # 1) Verificar opción
+        # 1) Verificar opción — DEBE pertenecer al ejercicio enviado. Sin este
+        #    candado se podía enviar la opción correcta de OTRO ejercicio y el
+        #    servidor la daba por buena (además de registrar un par
+        #    ejercicio/opción inconsistente en respuestas_estudiantes).
         cursor.execute("""
             SELECT o.es_correcta,
                    e.id_competencia,
@@ -775,16 +778,51 @@ def responder():
                    e.pista
             FROM opciones_ejercicio o
             JOIN ejercicios e ON e.id_ejercicio = o.id_ejercicio
-            WHERE o.id_opcion = %s
-        """, (id_opcion_sel,))
+            WHERE o.id_opcion    = %s
+              AND o.id_ejercicio = %s
+        """, (id_opcion_sel, id_ejercicio))
         row = cursor.fetchone()
         if not row:
-            return jsonify({"status": False, "error": "Opción no válida"}), 404
+            return jsonify({
+                "status": False,
+                "error":  "La opción no pertenece al ejercicio indicado",
+            }), 400
 
         es_correcta     = bool(row["es_correcta"])
         id_competencia  = row["id_competencia"]
         nivel_ejercicio = row["nivel_ejercicio"]
         pista_ejercicio = (row.get("pista") or "").strip()
+
+        # 1b) Idempotencia en evaluación: si esta pregunta YA fue respondida
+        #     (doble toque o reintento por WiFi inestable del colegio), NO se
+        #     registra nada de nuevo. Antes el reintento duplicaba la fila en
+        #     respuestas_estudiantes/progreso e inflaba total_preguntas y
+        #     puntaje_total en evaluacion_resultados, consumiendo el límite
+        #     de preguntas del alumno.
+        if not es_repaso and id_evaluacion:
+            cursor.execute("""
+                SELECT es_correcta FROM evaluacion_respuestas
+                WHERE id_evaluacion = %s AND id_estudiante = %s AND id_ejercicio = %s
+            """, (id_evaluacion, id_estudiante, id_ejercicio))
+            dup = cursor.fetchone()
+            if dup:
+                nivel_bd_dup, score_bd_dup = leer_nec(cursor, id_estudiante, id_competencia)
+                con.commit()
+                return jsonify({
+                    "correcta":            bool(dup["es_correcta"]),
+                    "mostrarPista":        False,
+                    "mensaje":             "Esta pregunta ya fue registrada.",
+                    "nuevoAjuste":         "igual",
+                    "idRespuesta":         None,
+                    "modo":                modo,
+                    "nivelMLCompetencia":  nivel_display_texto(nivel_bd_dup),
+                    "nivelCompetenciaInt": nivel_bd_dup,
+                    "scoreCompetencia":    round(score_bd_dup, 1),
+                    "nivelGlobal":         nivel_display_texto(nivel_bd_dup),
+                    "materialSugerido":    None,
+                    "recursosAdicionales": None,
+                    "docenteAlertado":     False,
+                }), 200
 
         # 2) Registrar respuesta
         cursor.execute("""
@@ -892,25 +930,30 @@ def responder():
                 VALUES (%s, %s, %s, %s, %s, NOW())
                 ON CONFLICT (id_evaluacion, id_estudiante, id_ejercicio) DO NOTHING
             """, (id_evaluacion, id_estudiante, id_ejercicio, id_opcion_sel, es_correcta))
-            cursor.execute("""
-                INSERT INTO evaluacion_resultados
-                    (id_evaluacion, id_estudiante, estado,
-                     total_correctas, total_preguntas, puntaje_total)
-                VALUES (%s, %s, 'en_progreso', %s, 1, %s)
-                ON CONFLICT (id_evaluacion, id_estudiante) DO UPDATE SET
-                    total_correctas = evaluacion_resultados.total_correctas
-                                    + EXCLUDED.total_correctas,
-                    total_preguntas = evaluacion_resultados.total_preguntas
-                                    + EXCLUDED.total_preguntas,
-                    puntaje_total   = ROUND(
-                        (evaluacion_resultados.total_correctas
-                         + EXCLUDED.total_correctas)::NUMERIC
-                        / (evaluacion_resultados.total_preguntas
-                           + EXCLUDED.total_preguntas) * 100
-                    )
-            """, (id_evaluacion, id_estudiante,
-                  1 if es_correcta else 0,
-                  100 if es_correcta else 0))
+            # Solo sumar al contador si el INSERT insertó de verdad. Un
+            # duplicado que llegue en paralelo (dos requests simultáneos que
+            # pasaron el guard 1b a la vez) hace rowcount=0 y NO debe inflar
+            # total_preguntas/puntaje_total.
+            if cursor.rowcount == 1:
+                cursor.execute("""
+                    INSERT INTO evaluacion_resultados
+                        (id_evaluacion, id_estudiante, estado,
+                         total_correctas, total_preguntas, puntaje_total)
+                    VALUES (%s, %s, 'en_progreso', %s, 1, %s)
+                    ON CONFLICT (id_evaluacion, id_estudiante) DO UPDATE SET
+                        total_correctas = evaluacion_resultados.total_correctas
+                                        + EXCLUDED.total_correctas,
+                        total_preguntas = evaluacion_resultados.total_preguntas
+                                        + EXCLUDED.total_preguntas,
+                        puntaje_total   = ROUND(
+                            (evaluacion_resultados.total_correctas
+                             + EXCLUDED.total_correctas)::NUMERIC
+                            / (evaluacion_resultados.total_preguntas
+                               + EXCLUDED.total_preguntas) * 100
+                        )
+                """, (id_evaluacion, id_estudiante,
+                      1 if es_correcta else 0,
+                      100 if es_correcta else 0))
 
         # 8) Material sugerido + recursos de búsqueda (solo repaso + respuesta incorrecta)
         material_sugerido    = None
