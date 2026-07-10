@@ -172,19 +172,28 @@ def dashboard_docente(id_docente: int):
         row_activos        = cur.fetchone() or {}
         estudiantes_activos = int(row_activos.get("activos", 0) or 0)
 
-        # 3) Progreso promedio real (promedio de las 4 competencias)
+        # 3) Progreso promedio del salón — MISMA fórmula que el panel web
+        #    (ws/docentes.py): por alumno ROUND(AVG((min(nivel,6)-1)*20)) sobre
+        #    las 4 competencias del NEC, y promedio entre alumnos. Antes esta
+        #    ruta usaba AVG(puntajes) (= % de acierto histórico), así que la app
+        #    del docente y el panel web mostraban números DISTINTOS bajo la
+        #    misma etiqueta "Progreso promedio".
         cur.execute("""
-            SELECT COALESCE(AVG(sub.prom_est), 0) AS promedio_general
+            SELECT COALESCE(ROUND(AVG(sub.prom_est)), 0) AS promedio_general
             FROM (
                 SELECT
                     e.id_estudiante,
-                    AVG(p.puntaje) AS prom_est
+                    COALESCE(
+                        (SELECT ROUND(AVG((LEAST(nec.nivel_actual, 6) - 1) * 20.0))::int
+                         FROM nivel_estudiante_competencia nec
+                         WHERE nec.id_estudiante = e.id_estudiante
+                           AND nec.id_competencia BETWEEN 1 AND 4),
+                        0
+                    ) AS prom_est
                 FROM docente_salones ds
                 JOIN salones s ON s.id_salon = ds.id_salon
                 JOIN estudiante_salones es ON es.id_salon = s.id_salon
                 JOIN estudiante e ON e.id_estudiante = es.id_estudiante
-                LEFT JOIN puntajes p ON p.id_estudiante = e.id_estudiante
-                    AND p.id_competencia BETWEEN 1 AND 4
                 WHERE ds.id_docente = %s
                   AND e.estado_estudiante = 'activo'
                 GROUP BY e.id_estudiante
