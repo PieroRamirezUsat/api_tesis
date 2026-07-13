@@ -1,6 +1,9 @@
 from flask import Blueprint, request, jsonify
 from models.Progreso import Progreso
-from models.scoring import nivel_to_progreso, NIVEL_NOMBRE, BANDA_DIFICULTAD_SQL
+from models.scoring import (
+    nivel_to_progreso, NIVEL_NOMBRE, BANDA_DIFICULTAD_SQL,
+    nivel_to_letra, letra_nombre,
+)
 from conexionBD import Conexion
 from flask_jwt_extended import jwt_required
 from ws._seguridad import verificar_acceso_estudiante
@@ -227,13 +230,18 @@ def progreso_por_competencia():
             pct          = nivel_to_progreso(nivel_actual)
             nombre_nivel = NIVEL_NOMBRE.get(nivel_actual, "Sin datos")
 
+            _letra = nivel_to_letra(nivel_actual)
             temas.append({
                 "idCompetencia":   row["id_competencia"],
                 "nombre":          row["descripcion"],
                 "porcentaje":      pct,
                 "nivelActual":     nivel_actual,
                 "nombreNivel":     nombre_nivel,
-                "promedioPuntaje": int(round(score))
+                "promedioPuntaje": int(round(score)),
+                # Calificación literal MINEDU (para las pantallas del docente).
+                # Campos ADICIONALES: no rompen a los clientes que no los usan.
+                "letraMinedu":     _letra,
+                "nombreMinedu":    letra_nombre(_letra),
             })
 
         return jsonify({"status": True, "temas": temas}), 200

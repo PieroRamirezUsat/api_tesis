@@ -78,6 +78,46 @@ def nivel_to_minedu(nivel: int) -> str:
     return NIVEL_MINEDU.get(int(nivel or 1), "Previo al inicio")
 
 
+# ── Escala LITERAL MINEDU (secundaria) — la que usan los docentes ───────────
+# El colegio califica con letras, no números:
+#   AD Logro destacado (18-20) · A Logrado (14-17) · B En proceso (11-13) · C En inicio (0-10)
+# Mapeo nivel interno 1-7 → letra:  1,2→C · 3,4→B · 5,6→A · 7→AD
+LETRA_NOMBRE = {
+    "AD": "Logro destacado",
+    "A":  "Logrado",
+    "B":  "En proceso",
+    "C":  "En inicio",
+}
+LETRA_VIGESIMAL = {"AD": "18-20", "A": "14-17", "B": "11-13", "C": "0-10"}
+_LETRA_SCORE_SEMILLA = {"C": 25, "B": 60, "A": 78, "AD": 95}
+
+
+def nivel_to_letra(nivel_actual: int) -> str:
+    """Nivel interno 1-7 → letra MINEDU (AD/A/B/C)."""
+    n = int(nivel_actual or 1)
+    if n >= 7:
+        return "AD"
+    if n >= 5:
+        return "A"
+    if n >= 3:
+        return "B"
+    return "C"
+
+
+def letra_nombre(letra: str) -> str:
+    return LETRA_NOMBRE.get((letra or "").strip().upper(), "—")
+
+
+def score_to_letra(score) -> str:
+    """Score 0-100 → letra MINEDU (pasando por el nivel 1-7)."""
+    return nivel_to_letra(score_to_nivel(score))
+
+
+def letra_to_score(letra: str):
+    """Letra MINEDU → score semilla 0-100 (diagnóstico). None si inválida."""
+    return _LETRA_SCORE_SEMILLA.get((letra or "").strip().upper())
+
+
 # ── Nivel → texto UI del tutor (bajo/medio/alto) ────────────────────────────
 # "bajo" → "en construcción" en Android
 NIVEL_DISPLAY = {
