@@ -211,6 +211,14 @@ def docentes_alertas(id_docente):
             JOIN docente_salones ds ON ds.id_salon      = s.id_salon
             WHERE ds.id_docente = %s
               AND e.estado_estudiante = 'activo'
+              -- Sin diagnóstico inicial el alumno está BLOQUEADO en la app
+              -- (no puede practicar): alertar por él es ruido puro. Antes,
+              -- un salón recién matriculado generaba 1 falsa alarma de
+              -- "bajo rendimiento" por CADA alumno sin notas.
+              AND NOT (e.cantidad IS NULL
+                       AND e.regularidad_equivalencia_cambio IS NULL
+                       AND e.forma_movimiento_localizacion   IS NULL
+                       AND e.gestion_datos_incertidumbre     IS NULL)
             ORDER BY nombre
         """, (id_docente,))
         estudiantes = cur.fetchall() or []
