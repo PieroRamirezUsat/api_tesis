@@ -129,7 +129,7 @@ def docentes_estudiantes(id_docente):
                 TRIM(u.apellidos) || ', ' || TRIM(u.nombre)  AS nombre,
                 -- Progreso con la MISMA fórmula que la web y el reporte
                 -- (nivel adaptativo NEC): (min(nivel,6)-1)*20 promediado en las
-                -- 4 competencias. Antes usaba AVG(puntajes) (= % de acierto),
+                -- 4 competencias. Antes usaba AVG(puntajes) (porcentaje de acierto),
                 -- así que la lista de la app mostraba un número distinto al de
                 -- la web para el mismo alumno.
                 COALESCE(
