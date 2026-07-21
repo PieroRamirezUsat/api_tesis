@@ -29,6 +29,7 @@
 #  Ver Procfile. En Railway el "Root Directory" es API_COMERCIAL.
 # ═══════════════════════════════════════════════════════════════════════════
 from flask import Flask, jsonify, send_file
+from werkzeug.middleware.proxy_fix import ProxyFix
 import mimetypes
 from datetime import timedelta
 from flask_jwt_extended import JWTManager
@@ -66,6 +67,16 @@ from ws.auth import ws_auth
 from ws.dominio import ws_dominio
 
 app = Flask(__name__)
+
+# ── Confiar en el proxy de Railway ──────────────────────────────────────────
+# Sin esto, request.remote_addr es la IP del propio proxy de Railway
+# (Hikari), no la del cliente real, y cambia segun por que nodo de borde
+# entra cada peticion. Flask-Limiter usa remote_addr para el rate limit por
+# IP (/auth/login); con la IP "equivocada" y cambiante el contador nunca
+# junta las peticiones de un mismo cliente y el limite nunca se activa
+# (confirmado en vivo: 7-15 intentos seguidos, cero 429). x_for=1 confia en
+# UN salto de proxy -- el de Railway -- y toma la IP real de X-Forwarded-For.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 
 app.config["JWT_SECRET_KEY"] = SecretKey.JWT_SECRET_KEY
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=8)
