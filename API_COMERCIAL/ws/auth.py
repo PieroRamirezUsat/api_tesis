@@ -78,7 +78,7 @@ def login():
            (not check_password_hash(row['contrasena'], password)):
             return jsonify({
                 'status': False,
-                'message': 'Credenciales inválidas'
+                'message': 'Correo o contraseña incorrectos.'
             }), 401
 
         
