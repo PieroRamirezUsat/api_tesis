@@ -210,8 +210,16 @@ EJERCICIOS_POR_NIVEL = {1: 7, 2: 5, 3: 5, 4: 5, 5: 5, 6: 5}
 
 def score_to_nivel(score) -> int:
     s = max(0.0, min(100.0, float(score or 0)))
+    # SCORE_BRACKETS son tramos ENTEROS (0-21, 22-35...) pero el score real
+    # puede ser fraccionario (AVG(puntaje) sobre intentos 0/100, ej. 13 de 60
+    # correctos = 21.66...). "lo <= s <= hi" dejaba un hueco de 1 punto entre
+    # tramos (21 y 22, 35 y 36...) donde NINGUN tramo calzaba y la funcion
+    # caia al `return 7` de emergencia -- un alumno con score 21.9 (recien
+    # empezando) se clasificaba como nivel 7 "Maestro", el mas dificil.
+    # Los tramos estan ordenados ascendente y son contiguos (hi+1 == siguiente
+    # lo), asi que basta con el primer tramo cuyo techo no se supere.
     for lo, hi, nivel in SCORE_BRACKETS:
-        if lo <= s <= hi:
+        if s <= hi:
             return nivel
     return 7
 
