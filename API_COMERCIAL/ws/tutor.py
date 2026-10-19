@@ -99,14 +99,18 @@ except Exception as e:
 
 def calcular_features_competencia(cursor, id_estudiante, id_competencia):
     """
-    7 features para el árbol de decisión:
-      total_intentos   — cuántas veces ha intentado
-      promedio_puntaje — promedio histórico (0-100)
-      min_puntaje      — peor resultado (detecta lagunas)
-      max_puntaje      — mejor resultado (techo alcanzado)
-      std_puntaje      — consistencia (std=0 → muy consistente)
-      tasa_aprobados   — fracción de intentos correctos
-      tendencia        — CORR(orden_temporal, puntaje): +1 mejorando / -1 empeorando
+    9 features para el árbol de decisión (ampliado 2026-10-16: se agregaron
+    tiempo_respuesta_promedio y tasa_uso_pista — deben coincidir EXACTO con
+    las que usa train_model.py, mismo orden, o la predicción sale mal):
+      total_intentos             — cuántas veces ha intentado
+      promedio_puntaje           — promedio histórico (0-100)
+      min_puntaje                — peor resultado (detecta lagunas)
+      max_puntaje                — mejor resultado (techo alcanzado)
+      std_puntaje                — consistencia (std=0 → muy consistente)
+      tasa_aprobados              — fracción de intentos correctos
+      tendencia                  — CORR(orden_temporal, puntaje): +1 mejorando / -1 empeorando
+      tiempo_respuesta_promedio  — segundos promedio por respuesta (modo repaso)
+      tasa_uso_pista             — fracción de respuestas con pista usada (modo repaso)
     """
     # ── Estadísticas globales ────────────────────────────────────────────
     cursor.execute("""
@@ -145,8 +149,21 @@ def calcular_features_competencia(cursor, id_estudiante, id_competencia):
     # CORR puede estar fuera de [-1,1] por redondeo numérico → clampear
     tendencia = max(-1.0, min(1.0, tendencia))
 
-    return np.array([[float(total), promedio, min_p, max_p, std_p, tasa, tendencia]],
-                    dtype=float)
+    # ── Tiempo de respuesta y uso de pista (mismo criterio que train_model.py:
+    #    solo modo 'repaso', porque en 'evaluacion' no se muestra la pista) ──
+    cursor.execute("""
+        SELECT AVG(r.tiempo_respuesta)                          AS tiempo_promedio,
+               AVG(CASE WHEN r.uso_pista THEN 1.0 ELSE 0.0 END) AS tasa_pista
+        FROM respuestas_estudiantes r
+        JOIN ejercicios e ON e.id_ejercicio = r.id_ejercicio
+        WHERE r.id_estudiante = %s AND e.id_competencia = %s AND r.modo = 'repaso'
+    """, (id_estudiante, id_competencia))
+    row_tp = cursor.fetchone() or {}
+    tiempo_prom = float(row_tp.get("tiempo_promedio") or 0.0)
+    tasa_pista  = float(row_tp.get("tasa_pista") or 0.0)
+
+    return np.array([[float(total), promedio, min_p, max_p, std_p, tasa, tendencia,
+                       tiempo_prom, tasa_pista]], dtype=float)
 
 
 def leer_nec(cursor, id_estudiante, id_competencia):

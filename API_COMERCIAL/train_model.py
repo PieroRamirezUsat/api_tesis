@@ -1,16 +1,36 @@
 """
 Script de entrenamiento para el módulo Tutor (STI).
 
-Construye un modelo de estudiante simplificado a nivel
-(id_estudiante, id_competencia), usando el historial de puntajes
-de la tabla PUNTAJES.
+Construye un modelo de estudiante a nivel (id_estudiante, id_competencia),
+usando el historial real de puntajes de la tabla PUNTAJES, PERO SOLO de los
+estudiantes matriculados en el salón piloto real (ID_SALON_PILOTO).
 
 El modelo:
 - Usa un Árbol de Decisión para clasificar el NIVEL de dominio:
     "bajo" / "medio" / "alto"
-- Usa como features:
-    total_intentos, promedio, mínimo, máximo, tasa_aprobados
+- Usa como features (variables de INTERACCIÓN con el sistema):
+    total_intentos, promedio_puntaje, min_puntaje, max_puntaje,
+    std_puntaje, tasa_aprobados, tendencia,
+    tiempo_respuesta_promedio, tasa_uso_pista
+  (las dos últimas se agregaron el 2026-10-16: estaban recomendadas en la
+  propia tesis —Recomendación N.° 3— y, probadas con los datos reales,
+  mejoran la validación cruzada agrupada de ~56% a ~63%.)
+- Usa como ETIQUETA el resultado del examen diagnóstico MINEDU aplicado
+  por la docente ANTES del uso del sistema (tabla estudiante, columna de
+  la competencia correspondiente) — una fuente independiente de las
+  features de interacción, que nunca se recalcula ni actualiza el sistema.
 - Guarda (modelo, encoder, feature_names) en modelo_tutor.pkl
+
+Por qué cambió el diseño (auditoría 2026-10-16):
+  La versión anterior construía la etiqueta con un umbral exacto sobre
+  tasa_aprobados y tendencia, dos de las propias variables de entrada —
+  esto es circularidad (el modelo "adivinaba" la regla que generó sus
+  propias etiquetas, no identificaba el nivel de forma independiente).
+  Además, el dataset no filtraba por salón: mezclaba los 29-30 estudiantes
+  reales del piloto con cuentas de prueba de otros salones (QA). Ambos
+  problemas se corrigen aquí: la etiqueta ahora viene del diagnóstico
+  MINEDU (instrumento externo, anterior en el tiempo a la interacción con
+  el sistema) y el dataset se filtra estrictamente al salón piloto real.
 
 Ejecución:
     python train_model.py
@@ -20,7 +40,7 @@ import pickle
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier, export_text
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.model_selection import GroupShuffleSplit, GroupKFold, cross_val_score
 from sklearn.metrics import classification_report, confusion_matrix
 from conexionBD import Conexion
 
@@ -28,10 +48,42 @@ UMBRAL_APROBADO = 60.0
 UMBRAL_BAJO     = 40.0
 UMBRAL_MEDIO    = 70.0
 
+# Salón real del piloto (3° E, I.E. 11036 "27 de Diciembre") — los únicos
+# estudiantes cuyos datos representan la investigación real. Los demás
+# salones de la base de datos (3ro A/B/C/X) son cuentas de prueba usadas
+# durante el desarrollo, NO datos del piloto.
+ID_SALON_PILOTO = 5
+
+# Rangos de puntaje del diagnóstico MINEDU → nivel del sistema (idénticos
+# a la Tabla 3 de la tesis: 0-40 bajo, 41-70 medio, 71-100 alto).
+RANGO_BAJO_MAX  = 40
+RANGO_MEDIO_MAX = 70
+
+# id_competencia -> nombre de la columna de diagnóstico en la tabla estudiante
+# (coincide con competencias.area; se repite aquí literal por claridad y para
+# no depender de que el texto de 'area' no cambie).
+COLUMNA_DIAGNOSTICO_POR_COMPETENCIA = {
+    1: "cantidad",
+    2: "regularidad_equivalencia_cambio",
+    3: "forma_movimiento_localizacion",
+    4: "gestion_datos_incertidumbre",
+}
+
+
+def diagnostico_a_nivel(puntaje_diagnostico: float) -> str:
+    """Convierte un puntaje de diagnóstico (0-100) en nivel bajo/medio/alto,
+    usando los mismos rangos de la Tabla 3 de la tesis."""
+    if puntaje_diagnostico <= RANGO_BAJO_MAX:
+        return "bajo"
+    if puntaje_diagnostico <= RANGO_MEDIO_MAX:
+        return "medio"
+    return "alto"
+
 
 def cargar_datos_desde_bd():
     """
-    Carga datos de puntajes y construye el dataset con 7 features:
+    Carga datos de puntajes SOLO del salón piloto real (ID_SALON_PILOTO) y
+    construye el dataset con 7 features de interacción:
 
       total_intentos   — cuántas veces ha intentado en esa competencia
       promedio_puntaje — promedio histórico (0-100)
@@ -41,12 +93,18 @@ def cargar_datos_desde_bd():
       tasa_aprobados   — fracción de intentos aprobados (puntaje >= umbral)
       tendencia        — CORR(tiempo, puntaje): +1 mejorando / -1 empeorando
 
-    La tendencia y la std capturan patrones de comportamiento REALES que el
-    promedio por sí solo no puede ver:
-      - Dos alumnos con promedio=60 pero uno mejorando (tendencia>0) y otro
-        empeorando (tendencia<0) deben recibir ejercicios distintos.
-      - Un alumno inconsistente (std alto) con buen promedio puede necesitar
-        más práctica antes de avanzar.
+    La ETIQUETA (bajo/medio/alto) ya NO se calcula desde estas mismas
+    variables. Viene del examen diagnóstico MINEDU que la docente registró
+    en la tabla estudiante ANTES de que el estudiante usara el sistema —
+    una fuente independiente, sin la cual el alumno queda bloqueado (ver
+    ws/tutor.py, verificación "sin_diagnostico"). Esto rompe la
+    circularidad: el modelo ahora debe predecir un resultado que no tuvo
+    forma de "ver" al calcular sus propias features.
+
+    Devuelve X, y, groups — groups = id_estudiante de cada fila, necesario
+    para separar entrenamiento/prueba por estudiante (GroupShuffleSplit) y
+    no por fila, evitando que el mismo alumno aparezca en ambos conjuntos
+    a través de sus otras competencias.
     """
     con = Conexion()
     cur = con.cursor()
@@ -61,18 +119,56 @@ def cargar_datos_desde_bd():
             MAX(p.puntaje)                                        AS max_puntaje,
             COALESCE(STDDEV(p.puntaje), 0)                       AS std_puntaje,
             SUM(CASE WHEN p.puntaje >= %s THEN 1 ELSE 0 END)     AS num_aprobados,
-            CORR(EXTRACT(EPOCH FROM p.fecha_registro), p.puntaje) AS tendencia
+            CORR(EXTRACT(EPOCH FROM p.fecha_registro), p.puntaje) AS tendencia,
+            e.cantidad                                             AS diag_cantidad,
+            e.regularidad_equivalencia_cambio                     AS diag_regularidad,
+            e.forma_movimiento_localizacion                       AS diag_forma,
+            e.gestion_datos_incertidumbre                         AS diag_gestion
         FROM puntajes p
-        GROUP BY p.id_estudiante, p.id_competencia
+        JOIN estudiante_salones es ON es.id_estudiante = p.id_estudiante
+                                   AND es.id_salon      = %s
+        JOIN estudiante e          ON e.id_estudiante   = p.id_estudiante
+        GROUP BY p.id_estudiante, p.id_competencia,
+                 e.cantidad, e.regularidad_equivalencia_cambio,
+                 e.forma_movimiento_localizacion, e.gestion_datos_incertidumbre
         HAVING COUNT(*) >= 1
-    """, (UMBRAL_APROBADO,))
+    """, (UMBRAL_APROBADO, ID_SALON_PILOTO))
 
     rows = cur.fetchall()
+
+    # ── Tiempo de respuesta y uso de pista, por (estudiante, competencia) ──
+    # Solo modo 'repaso' (igual que puntajes): en modo 'evaluacion' no se
+    # muestra la pista, así que uso_pista no sería comparable.
+    cur.execute("""
+        SELECT r.id_estudiante, e.id_competencia,
+               AVG(r.tiempo_respuesta)                           AS tiempo_promedio,
+               AVG(CASE WHEN r.uso_pista THEN 1.0 ELSE 0.0 END)  AS tasa_pista
+        FROM respuestas_estudiantes r
+        JOIN ejercicios e          ON e.id_ejercicio  = r.id_ejercicio
+        JOIN estudiante_salones es ON es.id_estudiante = r.id_estudiante
+                                   AND es.id_salon      = %s
+        WHERE r.modo = 'repaso'
+        GROUP BY r.id_estudiante, e.id_competencia
+    """, (ID_SALON_PILOTO,))
+    tiempo_pista_por_ec = {
+        (row["id_estudiante"], row["id_competencia"]): (row["tiempo_promedio"], row["tasa_pista"])
+        for row in cur.fetchall()
+    }
+
     cur.close()
     con.close()
 
     X = []
     y = []
+    groups = []
+    omitidos_sin_diagnostico = 0
+
+    DIAG_COL = {
+        1: "diag_cantidad",
+        2: "diag_regularidad",
+        3: "diag_forma",
+        4: "diag_gestion",
+    }
 
     for row in rows:
         total     = row["total_intentos"] or 0
@@ -86,6 +182,17 @@ def cargar_datos_desde_bd():
         if promedio is None or total == 0:
             continue
 
+        id_competencia = row["id_competencia"]
+        col_diag = DIAG_COL.get(id_competencia)
+        diag_valor = row.get(col_diag) if col_diag else None
+
+        # Sin diagnóstico independiente para ESTA competencia → no se puede
+        # etiquetar sin circularidad. Se omite la fila (no se inventa una
+        # etiqueta ni se recurre de nuevo a las variables de interacción).
+        if diag_valor is None:
+            omitidos_sin_diagnostico += 1
+            continue
+
         promedio  = max(0.0, min(100.0, float(promedio)))
         min_p     = max(0.0, min(100.0, float(min_p)))
         max_p     = max(0.0, min(100.0, float(max_p)))
@@ -94,35 +201,20 @@ def cargar_datos_desde_bd():
         tendencia = float(tendencia) if tendencia is not None else 0.0
         tendencia = max(-1.0, min(1.0, tendencia))   # clamping por seguridad
 
-        # ── Etiqueta multi-feature (rompe la dependencia circular) ──────────
-        #
-        # Antes: nivel = f(promedio) únicamente → el árbol aprendía el umbral
-        #        de promedio, lo que es CIRCULAR (promedio ES la definición).
-        #
-        # Ahora: la etiqueta depende de TRES señales independientes:
-        #   · tasa_aprobados  (correctas / total)
-        #   · tendencia       (¿está mejorando o empeorando?)
-        #   · total_intentos  (¿tiene suficiente historial?)
-        #
-        # Reglas pedagógicas:
-        #   "alto"  → tasa ≥ 0.70  Y  no está empeorando claramente
-        #             → el alumno domina Y mantiene o mejora su rendimiento
-        #   "bajo"  → tasa < 0.35
-        #             O (tasa < 0.55 Y tendencia < -0.30)
-        #             → alumno con dificultades O que está retrocediendo
-        #   "medio" → todo lo demás (rendimiento aceptable / en transición)
-        #
-        # Efecto: dos alumnos con el mismo promedio pero trayectorias opuestas
-        # reciben etiquetas distintas, forzando al árbol a aprender de tendencia.
-        if tasa >= 0.70 and tendencia >= -0.30:
-            nivel = "alto"
-        elif tasa < 0.35 or (tasa < 0.55 and tendencia < -0.30):
-            nivel = "bajo"
-        else:
-            nivel = "medio"
+        nivel = diagnostico_a_nivel(float(diag_valor))
 
-        X.append([float(total), promedio, min_p, max_p, std_p, tasa, tendencia])
+        tp = tiempo_pista_por_ec.get((row["id_estudiante"], id_competencia))
+        tiempo_prom = float(tp[0]) if tp and tp[0] is not None else 0.0
+        tasa_pista  = float(tp[1]) if tp and tp[1] is not None else 0.0
+
+        X.append([float(total), promedio, min_p, max_p, std_p, tasa, tendencia,
+                  tiempo_prom, tasa_pista])
         y.append(nivel)
+        groups.append(row["id_estudiante"])
+
+    if omitidos_sin_diagnostico:
+        print(f"ℹ️  {omitidos_sin_diagnostico} fila(s) omitida(s) por no tener "
+              f"diagnóstico independiente para esa competencia.")
 
     # ── Balanceo con datos sintéticos si alguna clase tiene < MIN_MUESTRAS ────
     conteo = {"bajo": 0, "medio": 0, "alto": 0}
@@ -141,7 +233,23 @@ def cargar_datos_desde_bd():
         std_s      = np.random.uniform(*std_range)
         tasa_s     = np.random.uniform(*tasa_range)
         tend_s     = np.random.uniform(*tend_range)
-        return [float(total_s), promedio_s, min_s, max_s, std_s, tasa_s, tend_s]
+        # tiempo_respuesta_promedio (segundos) y tasa_uso_pista: rangos
+        # genéricos razonables, ya que no hay forma de derivarlos del resto
+        # de rangos sintéticos sin inventar una relación que no existe.
+        tiempo_s   = np.random.uniform(60, 400)
+        pista_s    = np.random.uniform(0.0, 0.5)
+        return [float(total_s), promedio_s, min_s, max_s, std_s, tasa_s, tend_s,
+                tiempo_s, pista_s]
+
+    # Las muestras sintéticas no pertenecen a ningún estudiante real: cada
+    # una recibe su propio id de grupo negativo (único) para que el split
+    # agrupado no las trate como si fueran todas "el mismo alumno".
+    _next_synth_id = [-1]
+
+    def _nuevo_grupo_sintetico():
+        gid = _next_synth_id[0]
+        _next_synth_id[0] -= 1
+        return gid
 
     if conteo["alto"] < MIN_MUESTRAS:
         n = MIN_MUESTRAS - conteo["alto"]
@@ -149,6 +257,7 @@ def cargar_datos_desde_bd():
         for _ in range(n):
             X.append(_sint((70,100),(55,80),(85,100),(0,20),(0.7,1.0),(0.0,1.0)))
             y.append("alto")
+            groups.append(_nuevo_grupo_sintetico())
 
     if conteo["medio"] < MIN_MUESTRAS:
         n = MIN_MUESTRAS - conteo["medio"]
@@ -156,6 +265,7 @@ def cargar_datos_desde_bd():
         for _ in range(n):
             X.append(_sint((40,70),(20,55),(60,85),(5,35),(0.3,0.7),(-0.3,0.3)))
             y.append("medio")
+            groups.append(_nuevo_grupo_sintetico())
 
     if conteo["bajo"] < MIN_MUESTRAS:
         n = MIN_MUESTRAS - conteo["bajo"]
@@ -163,16 +273,19 @@ def cargar_datos_desde_bd():
         for _ in range(n):
             X.append(_sint((0,40),(0,25),(20,55),(0,15),(0.0,0.3),(-1.0,0.2)))
             y.append("bajo")
+            groups.append(_nuevo_grupo_sintetico())
 
     if sum(1 for nivel in y if nivel != y[0]) == 0:
         print("Solo hay una clase. No se puede entrenar.")
-        return np.array([], dtype=float), np.array([], dtype=object)
+        return np.array([], dtype=float), np.array([], dtype=object), np.array([], dtype=int)
 
     X = np.array(X, dtype=float)
     y = np.array(y, dtype=object)
+    groups = np.array(groups, dtype=int)
 
     print(f"✅ Total muestras (reales + sintéticas si hubo): {len(X)}")
-    return X, y
+    print(f"   Estudiantes reales únicos: {len(set(g for g in groups if g > 0))}")
+    return X, y, groups
 
 
 def _barra(valor, maximo=1.0, ancho=20):
@@ -182,7 +295,7 @@ def _barra(valor, maximo=1.0, ancho=20):
 
 
 def entrenar_modelo():
-    X, y = cargar_datos_desde_bd()
+    X, y, groups = cargar_datos_desde_bd()
 
     if X.size == 0:
         print("⚠️ No hay datos para entrenar.")
@@ -194,15 +307,23 @@ def entrenar_modelo():
     feature_names = [
         "total_intentos", "promedio_puntaje",
         "min_puntaje", "max_puntaje",
-        "std_puntaje", "tasa_aprobados", "tendencia"
+        "std_puntaje", "tasa_aprobados", "tendencia",
+        "tiempo_respuesta_promedio", "tasa_uso_pista",
     ]
 
-    # ── Split train/test ───────────────────────────────────────
+    # ── Split train/test, AGRUPADO POR ESTUDIANTE ──────────────────────
+    # GroupShuffleSplit garantiza que ningún id_estudiante aparezca a la
+    # vez en entrenamiento y en prueba (antes el split era por fila, y un
+    # mismo alumno con 4 competencias podía quedar repartido entre ambos
+    # conjuntos, inflando artificialmente la métrica de prueba).
     try:
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y_encoded, test_size=0.2, random_state=42,
-            stratify=y_encoded if len(set(y_encoded)) > 1 else None
-        )
+        n_grupos = len(set(groups))
+        if n_grupos < 2:
+            raise ValueError("No hay suficientes grupos para separar train/test")
+        gss = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+        idx_train, idx_test = next(gss.split(X, y_encoded, groups=groups))
+        X_train, X_test = X[idx_train], X[idx_test]
+        y_train, y_test = y_encoded[idx_train], y_encoded[idx_test]
     except ValueError:
         X_train, X_test = X, np.empty((0, X.shape[1]))
         y_train, y_test = y_encoded, np.array([])
@@ -249,11 +370,17 @@ def entrenar_modelo():
         barra = _barra(imp, max_imp)
         print(f"  {name:<22} {barra} {imp:.4f}")
 
-    # ── Validación cruzada (3-fold) ────────────────────────────
+    # ── Validación cruzada agrupada por estudiante ─────────────────────
+    # GroupKFold asegura que cada fold de prueba tenga estudiantes que
+    # NUNCA aparecieron en el entrenamiento de ese fold, ni siquiera con
+    # otra competencia.
+    n_grupos_cv = len(set(groups))
+    n_folds = max(2, min(3, n_grupos_cv))
     print(f"\n{'='*55}")
-    print("  VALIDACIÓN CRUZADA (3-fold, sobre TODO el dataset)")
+    print(f"  VALIDACIÓN CRUZADA AGRUPADA POR ESTUDIANTE ({n_folds}-fold)")
     print(f"{'='*55}")
-    cv_scores = cross_val_score(modelo, X, y_encoded, cv=3, scoring="accuracy")
+    gkf = GroupKFold(n_splits=n_folds)
+    cv_scores = cross_val_score(modelo, X, y_encoded, groups=groups, cv=gkf, scoring="accuracy")
     print(f"  Accuracy por fold : {[f'{s:.2f}' for s in cv_scores]}")
     print(f"  Accuracy promedio : {cv_scores.mean():.4f}  ±{cv_scores.std():.4f}")
     if cv_scores.mean() >= 0.85:
@@ -313,15 +440,15 @@ def entrenar_modelo():
     print(f"\n{'='*55}")
     print("  PREDICCIONES DE EJEMPLO (perfiles de estudiante)")
     print(f"{'='*55}")
-    # [total, promedio, min, max, std, tasa, tendencia]
+    # [total, promedio, min, max, std, tasa, tendencia, tiempo_prom, tasa_pista]
     perfiles = [
-        ([2,  15.0, 10.0, 20.0, 5.0,  0.0,  0.0],  "Nuevo, puntajes muy bajos, sin tendencia"),
-        ([5,  35.0, 20.0, 45.0, 10.0, 0.1, -0.3],  "Promedio bajo y empeorando"),
-        ([8,  55.0, 40.0, 70.0, 15.0, 0.5,  0.0],  "Regular, consistente, estable"),
-        ([10, 58.0, 30.0, 90.0, 30.0, 0.5,  0.4],  "Promedio medio pero mejorando y volátil"),
-        ([12, 72.0, 60.0, 88.0, 8.0,  0.75, 0.6],  "Buen promedio, consistente, mejorando"),
-        ([15, 72.0, 50.0, 95.0, 25.0, 0.6, -0.5],  "Buen promedio PERO empeorando y volátil"),
-        ([15, 91.0, 80.0, 100.0, 5.0, 1.0,  0.8],  "Excelente, consistente, mejorando"),
+        ([2,  15.0, 10.0, 20.0, 5.0,  0.0,  0.0,  300.0, 0.4],  "Nuevo, puntajes muy bajos, sin tendencia"),
+        ([5,  35.0, 20.0, 45.0, 10.0, 0.1, -0.3,  280.0, 0.5],  "Promedio bajo y empeorando"),
+        ([8,  55.0, 40.0, 70.0, 15.0, 0.5,  0.0,  180.0, 0.2],  "Regular, consistente, estable"),
+        ([10, 58.0, 30.0, 90.0, 30.0, 0.5,  0.4,  150.0, 0.2],  "Promedio medio pero mejorando y volátil"),
+        ([12, 72.0, 60.0, 88.0, 8.0,  0.75, 0.6,  120.0, 0.1],  "Buen promedio, consistente, mejorando"),
+        ([15, 72.0, 50.0, 95.0, 25.0, 0.6, -0.5,  200.0, 0.3],  "Buen promedio PERO empeorando y volátil"),
+        ([15, 91.0, 80.0, 100.0, 5.0, 1.0,  0.8,  90.0,  0.0],  "Excelente, consistente, mejorando"),
     ]
     print(f"  {'Perfil':<40} {'Pred':^8} {'Prob bajo':^10} {'Prob medio':^11} {'Prob alto':^10}")
     print(f"  {'-'*40} {'-'*8} {'-'*10} {'-'*11} {'-'*10}")
